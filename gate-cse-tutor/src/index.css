@@ -1,0 +1,145 @@
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import 'katex/dist/katex.min.css';
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-root: #131314;
+  --bg-sidebar: #171718;
+  --bg-panel: #0f0f0f;
+  --bg-surface: #1e1e1f;
+  --bg-hover: #282829;
+  --bg-active: #2c2c2d;
+  --bg-user-msg: #1e1e1f;
+  --border: transparent;
+  --border-active: #3c3c3d;
+  --border-subtle: transparent;
+  --text-primary: #e3e3e3;
+  --text-heading: #e8eaed;
+  --text-muted: #9aa0a6;
+  --text-faint: #5f6368;
+  --text-user: #e8eaed;
+  --accent: #404040;
+  --accent-active: #555555;
+  --accent-blue: #8ab4f8;
+  --accent-blue-hover: #aecbfa;
+  --accent-blue-glow: rgba(138, 180, 248, 0.12);
+  --accent-blue-subtle: rgba(138, 180, 248, 0.04);
+  --thinking-bg: #171718;
+  --code-bg: #171718;
+  --status-good: #81c995;
+  --status-error: #f28b82;
+  --status-error-bg: rgba(242, 139, 130, 0.08);
+  --status-warning: #fdd663;
+  --status-warning-bg: rgba(253, 214, 99, 0.08);
+
+  --font-sans: 'Google Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 12px;
+  --radius-xl: 24px;
+  --radius-pill: 100px;
+  --sidebar-width: 300px;
+
+  --transition-fast: 120ms ease;
+  --transition-normal: 150ms ease;
+  --transition-smooth: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-root);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+}
+
+*:hover > ::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+::selection {
+  background: rgba(138, 180, 248, 0.3);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInLeft {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fadeInRight {
+  from { opacity: 0; transform: translateX(6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInError {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+@keyframes appFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* KaTeX */
+.katex-display {
+  margin: 16px 0 !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 0;
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+@keyframes pulseRed {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}

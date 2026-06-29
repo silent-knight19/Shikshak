@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GATE CSE Tutor</string>
+    <string name="default_url">http://localhost:5173</string>
+    <string name="settings_url_label">Server URL</string>
+    <string name="settings_save">Save</string>
+    <string name="no_connection">No internet connection. Please check your network.</string>
+    <string name="loading">Loading…</string>
+    <string name="settings_title">Settings</string>
+</resources>

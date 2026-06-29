@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Book icon representing GATE CSE Tutor -->
+    <group
+        android:translateX="24"
+        android:translateY="20">
+
+        <!-- Book spine -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M10,10 L10,70 L50,70 L50,10 Z" />
+
+        <!-- Book left page -->
+        <path
+            android:fillColor="#E8EAED"
+            android:pathData="M10,10 L10,70 L30,70 L30,10 Z" />
+
+        <!-- Book right page -->
+        <path
+            android:fillColor="#D2D4D7"
+            android:pathData="M30,10 L30,70 L50,70 L50,10 Z" />
+
+        <!-- Text lines on left page -->
+        <path
+            android:fillColor="#9AA0A6"
+            android:pathData="M14,22 L26,22 L26,24 L14,24 Z" />
+        <path
+            android:fillColor="#9AA0A6"
+            android:pathData="M14,28 L24,28 L24,30 L14,30 Z" />
+        <path
+            android:fillColor="#9AA0A6"
+            android:pathData="M14,34 L26,34 L26,36 L14,36 Z" />
+        <path
+            android:fillColor="#9AA0A6"
+            android:pathData="M14,40 L22,40 L22,42 L14,42 Z" />
+
+        <!-- Text lines on right page -->
+        <path
+            android:fillColor="#9AA0A6"
+            android:pathData="M34,22 L46,22 L46,24 L34,24 Z" />
+        <path
+            android:fillColor="#9AA0A6"
+            android:pathData="M34,28 L44,28 L44,30 L34,30 Z" />
+        <path
+            android:fillColor="#9AA0A6"
+            android:pathData="M34,34 L46,34 L46,36 L34,36 Z" />
+
+        <!-- "G" letter marking -->
+        <path
+            android:fillColor="#8AB4F8"
+            android:pathData="M30,50 m-8,0 a8,8 0 1,1 16,0 a8,8 0 1,1 -16,0"
+            android:strokeWidth="0" />
+        <path
+            android:fillColor="#1A73E8"
+            android:pathData="M34,48 L38,48 L38,52 L34,52 Z" />
+        <path
+            android:fillColor="#1A73E8"
+            android:pathData="M34,52 L38,52 L38,54 L36,54 L36,53 L34,53 Z" />
+
+    </group>
+
+    <!-- "G" character -->
+    <group
+        android:translateX="30"
+        android:translateY="20">
+        <path
+            android:fillColor="#8AB4F8"
+            android:pathData="M18,28 L36,28 Q48,28 48,40 Q48,52 36,52 L18,52 L18,44 L30,44 L30,48 L36,48 Q40,48 40,40 Q40,32 36,32 L18,32 Z" />
+    </group>
+</vector>
