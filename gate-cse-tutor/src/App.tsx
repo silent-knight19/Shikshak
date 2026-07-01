@@ -590,35 +590,61 @@ export default function App() {
     for (const file of fileList) {
       try {
         const id = crypto.randomUUID?.() ?? Date.now().toString(36) + Math.random().toString(36).slice(2);
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = () => reject(new Error('Failed to read file'));
-          reader.readAsDataURL(file);
-        });
-        newFiles.push({ id, file, dataUrl, uploadUrl: '', uploading: true });
+        
+        let finalDataUrl = '';
+        if (file.type.startsWith('image/')) {
+           finalDataUrl = await new Promise<string>((resolve, reject) => {
+             const reader = new FileReader();
+             reader.onload = (ev) => {
+               const img = new Image();
+               img.onload = () => {
+                 const canvas = document.createElement('canvas');
+                 const MAX_WIDTH = 1200;
+                 const MAX_HEIGHT = 1200;
+                 let width = img.width;
+                 let height = img.height;
+                 
+                 if (width > height) {
+                   if (width > MAX_WIDTH) {
+                     height *= MAX_WIDTH / width;
+                     width = MAX_WIDTH;
+                   }
+                 } else {
+                   if (height > MAX_HEIGHT) {
+                     width *= MAX_HEIGHT / height;
+                     height = MAX_HEIGHT;
+                   }
+                 }
+                 canvas.width = width;
+                 canvas.height = height;
+                 const ctx = canvas.getContext('2d');
+                 ctx?.drawImage(img, 0, 0, width, height);
+                 resolve(canvas.toDataURL('image/jpeg', 0.7)); // Compress to fit in Firestore
+               };
+               img.onerror = () => reject(new Error('Failed to load image'));
+               img.src = ev.target?.result as string;
+             };
+             reader.onerror = () => reject(new Error('Failed to read file'));
+             reader.readAsDataURL(file);
+           });
+        } else {
+           finalDataUrl = await new Promise<string>((resolve, reject) => {
+             const reader = new FileReader();
+             reader.onload = () => resolve(reader.result as string);
+             reader.onerror = () => reject(new Error('Failed to read file'));
+             reader.readAsDataURL(file);
+           });
+        }
+        
+        // Skip Firebase Storage: set uploadUrl to the base64 string directly
+        newFiles.push({ id, file, dataUrl: finalDataUrl, uploadUrl: finalDataUrl, uploading: false });
       } catch (err) {
-        console.error('Failed to read file:', file.name, err);
+        console.error('Failed to process file:', file.name, err);
       }
     }
 
     if (newFiles.length === 0) return;
     setPendingFiles(prev => [...prev, ...newFiles]);
-
-    for (const entry of newFiles) {
-      try {
-        const convId = activeId || 'pending';
-        const url = await uploadFile(user!.uid, convId, entry.file);
-        setPendingFiles(prev =>
-          prev.map(p => p.id === entry.id ? { ...p, uploadUrl: url, uploading: false } : p),
-        );
-      } catch (err) {
-        console.error('File upload failed:', entry.file.name, err);
-        setPendingFiles(prev =>
-          prev.map(p => p.id === entry.id ? { ...p, uploading: false } : p),
-        );
-      }
-    }
   };
 
   const removePendingFile = (id: string) => {
