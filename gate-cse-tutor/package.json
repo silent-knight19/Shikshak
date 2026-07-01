@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "server": "node server/index.js"
+    "server": "node server/index.js",
+    "start": "node server/index.js",
+    "deploy:setup": "npm ci && cd server && npm ci && cd .. && npm run build"
   },
   "dependencies": {
     "cors": "^2.8.5",
