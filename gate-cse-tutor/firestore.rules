@@ -1,0 +1,36 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: check if the requester is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper: check if the requester owns the given user document
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    // User profiles — each user can read/write only their own
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+
+      // Conversations subcollection
+      match /conversations/{convId} {
+        allow read, write: if isOwner(uid);
+
+        // Messages subcollection
+        match /messages/{msgId} {
+          allow read, write: if isOwner(uid);
+        }
+      }
+    }
+
+    // Deny everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

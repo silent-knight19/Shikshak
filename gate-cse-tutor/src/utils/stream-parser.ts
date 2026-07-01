@@ -1,47 +1,47 @@
 import type { StreamChunk } from '../store/types';
 
 /**
- * Parse a single Gemini API response object into a StreamChunk.
- * The streamGenerateContent endpoint returns a JSON array of response objects,
- * NOT SSE "data:" lines. Each object has the standard Gemini response shape.
+ * Parse a single SSE event object into a StreamChunk.
+ * Handles OpenAI-compatible chunk format.
  */
-export function parseResponseObject(obj: any): StreamChunk | null {
+export function parseSSEEvent(obj: any): StreamChunk | null {
   try {
-    const candidate = obj.candidates?.[0];
-    if (!candidate?.content?.parts) {
+    const choice = obj.choices?.[0];
+    
+    if (!choice) {
       // Might be a usage-only final chunk
-      const um = obj.usageMetadata;
+      const um = obj.usage;
       if (um) {
         return {
           text: '',
           thought: false,
           done: false,
           tokenUsage: {
-            prompt: um.promptTokenCount ?? 0,
-            completion: um.candidatesTokenCount ?? 0,
-            thinking: um.thoughtsTokenCount ?? 0,
+            prompt: um.prompt_tokens ?? 0,
+            completion: um.completion_tokens ?? 0,
+            thinking: 0,
           },
         };
       }
       return null;
     }
 
-    let text = '';
+    const delta = choice.delta;
+    let text = delta?.content || '';
     let thought = false;
 
-    for (const part of candidate.content.parts) {
-      if (part.text != null) {
-        text += part.text;
-        if (part.thought) thought = true;
-      }
+    // Support deepseek-reasoner style reasoning content if present
+    if (delta?.reasoning_content) {
+      text = delta.reasoning_content;
+      thought = true;
     }
 
-    const um = obj.usageMetadata;
+    const um = obj.usage;
     const tokenUsage = um
       ? {
-          prompt: um.promptTokenCount ?? 0,
-          completion: um.candidatesTokenCount ?? 0,
-          thinking: um.thoughtsTokenCount ?? 0,
+          prompt: um.prompt_tokens ?? 0,
+          completion: um.completion_tokens ?? 0,
+          thinking: 0,
         }
       : undefined;
 
@@ -52,80 +52,49 @@ export function parseResponseObject(obj: any): StreamChunk | null {
 }
 
 /**
- * Incrementally extract complete JSON objects from a streamed JSON array.
- *
- * The Gemini streamGenerateContent response looks like:
- *   [{...}\n,{...}\n,{...}\n]
- *
- * We track bracket depth to find where each top-level object ends,
- * then parse it. Returns the parsed objects and any remaining buffer.
+ * Extract SSE events from the buffer.
+ * Expected format: data: {...}\n\n
  */
-export function extractJsonObjects(buffer: string): { objects: any[]; remaining: string } {
-  const objects: any[] = [];
-  let i = 0;
+export function extractSSEEvents(buffer: string): { events: any[]; remaining: string } {
+  const events: any[] = [];
+  let remaining = buffer;
 
-  while (i < buffer.length) {
-    // Skip whitespace, commas, and array brackets at the top level
-    const ch = buffer[i];
-    if (ch === '[' || ch === ']' || ch === ',' || ch === '\n' || ch === '\r' || ch === ' ' || ch === '\t') {
-      i++;
-      continue;
-    }
-
-    // We expect a '{' to start an object
-    if (ch !== '{') {
-      i++;
-      continue;
-    }
-
-    // Find the matching closing '}'
-    let depth = 0;
-    let inString = false;
-    let escape = false;
-    let j = i;
-
-    for (; j < buffer.length; j++) {
-      const c = buffer[j];
-
-      if (escape) {
-        escape = false;
-        continue;
+  while (true) {
+    const doubleNewlineIdx = remaining.indexOf('\n\n');
+    if (doubleNewlineIdx === -1) {
+      // Also check for \r\n\r\n just in case
+      const doubleCrLfIdx = remaining.indexOf('\r\n\r\n');
+      if (doubleCrLfIdx === -1) {
+        break;
       }
-
-      if (c === '\\' && inString) {
-        escape = true;
-        continue;
-      }
-
-      if (c === '"') {
-        inString = !inString;
-        continue;
-      }
-
-      if (inString) continue;
-
-      if (c === '{') depth++;
-      else if (c === '}') {
-        depth--;
-        if (depth === 0) {
-          // Found a complete object
-          const jsonStr = buffer.slice(i, j + 1);
-          try {
-            objects.push(JSON.parse(jsonStr));
-          } catch {
-            // Malformed JSON — skip it
-          }
-          i = j + 1;
-          break;
-        }
-      }
-    }
-
-    // If we didn't close the object, the rest is an incomplete fragment
-    if (depth > 0) {
-      return { objects, remaining: buffer.slice(i) };
+      const chunk = remaining.slice(0, doubleCrLfIdx);
+      remaining = remaining.slice(doubleCrLfIdx + 4);
+      processChunk(chunk, events);
+    } else {
+      const chunk = remaining.slice(0, doubleNewlineIdx);
+      remaining = remaining.slice(doubleNewlineIdx + 2);
+      processChunk(chunk, events);
     }
   }
 
-  return { objects, remaining: '' };
+  return { events, remaining };
+}
+
+function processChunk(chunk: string, events: any[]) {
+  const lines = chunk.split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('data:')) {
+      const data = trimmed.slice(5).trim();
+      if (data === '[DONE]') {
+        events.push('[DONE]');
+      } else if (data) {
+        try {
+          events.push(JSON.parse(data));
+        } catch {
+          // malformed or incomplete data, ignore
+        }
+      }
+    }
+  }
 }

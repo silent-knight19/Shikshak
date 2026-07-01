@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type FC, type ReactNode } from 'react';
-import { onAuthStateChanged, signInWithPopup, signInWithCredential, GoogleAuthProvider, signOut, type User } from 'firebase/auth';
+import { onAuthStateChanged, signInWithCredential, signInWithRedirect, GoogleAuthProvider, signOut, type User } from 'firebase/auth';
 import { doc, setDoc, Timestamp } from 'firebase/firestore';
 import { auth, googleProvider, db } from './config';
 
@@ -52,14 +52,16 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
-        try {
-          await setDoc(doc(db, 'users', firebaseUser.uid), {
-            email: firebaseUser.email,
-            displayName: firebaseUser.displayName,
-            photoURL: firebaseUser.photoURL,
-            lastLoginAt: Timestamp.now(),
-          }, { merge: true });
-        } catch {}
+      try {
+        await setDoc(doc(db, 'users', firebaseUser.uid), {
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName,
+          photoURL: firebaseUser.photoURL,
+          lastLoginAt: Timestamp.now(),
+        }, { merge: true });
+      } catch (err) {
+        console.error('Failed to save user document:', err);
+      }
       } else {
         setUser(null);
       }
@@ -80,9 +82,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
     if (window.AndroidAuth) {
       await tryAndroidAuthBridge();
     } else {
-      import('firebase/auth').then(({ signInWithRedirect }) => {
-        signInWithRedirect(auth, googleProvider);
-      });
+      await signInWithRedirect(auth, googleProvider);
     }
   };
 

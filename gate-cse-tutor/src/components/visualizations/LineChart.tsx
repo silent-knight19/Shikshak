@@ -42,7 +42,7 @@ export default function LineChart({ data }: Props) {
       {data.controls && data.controls.length > 0 && (
         <div style={{ display: 'flex', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
           {data.controls.map(c => c.type === 'toggle' && (
-            <label key={c.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#555', cursor: 'pointer' }}>
+            <label key={c.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.857em', color: 'var(--text-muted)', cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={toggles[c.name] ?? c.default as boolean}
@@ -53,15 +53,15 @@ export default function LineChart({ data }: Props) {
           ))}
         </div>
       )}
-      <ResponsiveContainer width="100%" height={360}>
+      <ResponsiveContainer width="100%" height={400}>
         <RechartsLine data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-          <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#555' }} />
-          <YAxis tick={{ fontSize: 11, fill: '#888' }} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-active)" />
+          <XAxis dataKey="name" tick={{ fontSize: '0.786em', fill: 'var(--text-muted)' }} />
+          <YAxis tick={{ fontSize: '0.786em', fill: 'var(--text-faint)' }} />
           <Tooltip
-            contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e2e8f0' }}
+            contentStyle={{ fontSize: '0.857em', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)' }}
           />
-          <Legend />
+          <Legend wrapperStyle={{ color: 'var(--text-muted)' }} />
           {visibleDatasets.map((ds, i) => (
             <Line
               key={ds.label}
@@ -69,7 +69,7 @@ export default function LineChart({ data }: Props) {
               dataKey={ds.label}
               stroke={ds.color ?? CHART_COLORS[i % CHART_COLORS.length]}
               strokeWidth={2.5}
-              dot={{ r: 4, fill: ds.color ?? CHART_COLORS[i % CHART_COLORS.length], strokeWidth: 1.5, stroke: '#fff' }}
+              dot={{ r: 4, fill: ds.color ?? CHART_COLORS[i % CHART_COLORS.length], strokeWidth: 1.5, stroke: 'var(--bg-surface)' }}
               activeDot={{ r: 6 }}
             />
           ))}

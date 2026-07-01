@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 .env
+server/service-account.json
 dist-ssr
 *.local
 

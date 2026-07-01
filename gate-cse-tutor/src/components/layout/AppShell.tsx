@@ -3,6 +3,7 @@ import type { FC, ReactNode } from 'react';
 interface AppShellProps {
   sidebar: ReactNode;
   children: ReactNode;
+  isMobile?: boolean;
 }
 
 const shellSx: React.CSSProperties = {
@@ -21,9 +22,9 @@ const mainSx: React.CSSProperties = {
   minWidth: 0,
 };
 
-const AppShell: FC<AppShellProps> = ({ sidebar, children }) => (
+const AppShell: FC<AppShellProps> = ({ sidebar, children, isMobile }) => (
   <div style={shellSx}>
-    {sidebar}
+    {!isMobile && sidebar}
     <div style={mainSx}>{children}</div>
   </div>
 );

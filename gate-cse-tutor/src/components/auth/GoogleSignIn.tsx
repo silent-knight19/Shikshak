@@ -11,7 +11,7 @@ const GoogleSignIn: FC = () => {
         width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: 'var(--bg-root)',
       }}>
-        <div style={{ color: 'var(--text-faint)', fontSize: 14 }}>Loading...</div>
+        <div style={{ color: 'var(--text-faint)', fontSize: '1em' }}>Loading...</div>
       </div>
     );
   }
@@ -36,10 +36,10 @@ const GoogleSignIn: FC = () => {
         </div>
 
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 24, fontWeight: 600, color: 'var(--text-heading)', marginBottom: 8 }}>
+          <div style={{ fontSize: '1.714em', fontWeight: 600, color: 'var(--text-heading)', marginBottom: 8 }}>
             GATE CSE Tutor
           </div>
-          <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          <div style={{ fontSize: '1em', color: 'var(--text-muted)', lineHeight: 1.5 }}>
             AI-powered tutoring for GATE Computer Science & Engineering
           </div>
         </div>
@@ -51,7 +51,7 @@ const GoogleSignIn: FC = () => {
             padding: '12px 24px', borderRadius: 'var(--radius)',
             background: 'var(--bg-surface)', border: '1px solid var(--border)',
             color: 'var(--text-primary)', cursor: 'pointer',
-            fontSize: 15, fontFamily: 'var(--font-sans)',
+            fontSize: '1.071em', fontFamily: 'var(--font-sans)',
             transition: 'all 0.15s',
           }}
           onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; }}
@@ -66,7 +66,7 @@ const GoogleSignIn: FC = () => {
           Sign in with Google
         </button>
 
-        <div style={{ fontSize: 12, color: 'var(--text-faint)', textAlign: 'center', lineHeight: 1.5 }}>
+        <div style={{ fontSize: '0.857em', color: 'var(--text-faint)', textAlign: 'center', lineHeight: 1.5 }}>
           Your data syncs across all your devices so you can study anywhere.
         </div>
       </div>

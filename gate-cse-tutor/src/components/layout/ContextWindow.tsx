@@ -1,6 +1,6 @@
 import { type FC } from 'react';
 
-const CTX_LIMIT = 256_000;
+const CTX_LIMIT = 131_072; // gpt-oss-120b: 128K · gemma-4-31b: 256K — safe minimum
 
 function fmt(n: number): string {
   if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
@@ -38,7 +38,7 @@ const ContextWindow: FC<ContextWindowProps> = ({ used }) => {
         justifyContent: 'space-between',
       }}>
         <span style={{
-          fontSize: 10,
+          fontSize: '0.714em',
           fontWeight: 600,
           color: 'var(--text-muted)',
           textTransform: 'uppercase',
@@ -48,7 +48,7 @@ const ContextWindow: FC<ContextWindowProps> = ({ used }) => {
           Context
         </span>
         <span style={{
-          fontSize: 12,
+          fontSize: '0.857em',
           fontFamily: 'var(--font-mono)',
           fontWeight: 500,
           color: used === 0 ? 'var(--text-faint)' : 'var(--text-primary)',

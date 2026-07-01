@@ -18,7 +18,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from './config';
-import type { Conversation, FirestoreMessage } from '../store/types';
+import type { Conversation, FirestoreMessage, Source } from '../store/types';
 import { generateTitle } from '../utils/title-generator';
 
 const SPECIAL_EMAIL = 'sachinsinghtomar7749@gmail.com';
@@ -97,6 +97,8 @@ export function subscribeMessages(
           attachments: d2.attachments ?? [],
           thinkingTrace: d2.thinkingTrace ?? '',
           visualizationHTML: d2.visualizationHTML ?? undefined,
+          sources: d2.sources ?? undefined,
+          feedback: d2.feedback ?? null,
           tokens: d2.tokens ?? undefined,
           status: d2.status ?? 'completed',
           createdAt: d2.createdAt?.toMillis() ?? 0,
@@ -121,7 +123,7 @@ export async function createConversation(
     messageCount: 0,
     totalTokens: { prompt: 0, completion: 0, thinking: 0 },
   });
-  enforceConversationLimit(uid);
+  enforceConversationLimit(uid).catch(err => console.error('Failed to enforce conversation limit:', err));
   return ref.id;
 }
 
@@ -217,6 +219,7 @@ export async function createAssistantMessage(
     subject,
     attachments: [],
     thinkingTrace: '',
+    sources: [],
     tokens: null,
     status: 'streaming',
     createdAt: serverTimestamp(),
@@ -245,13 +248,22 @@ export async function finalizeAssistantMessage(
   content: string,
   thinkingTrace: string,
   tokens: { prompt: number; completion: number; thinking: number } | undefined,
+  visualizationHTML?: string | null,
+  sources?: Source[] | null,
 ) {
-  await updateDoc(messageDoc(uid, convId, msgId), {
+  const updates: Record<string, any> = {
     content,
     thinkingTrace,
     tokens: tokens ?? null,
     status: 'completed',
-  });
+  };
+  if (visualizationHTML) {
+    updates.visualizationHTML = visualizationHTML;
+  }
+  if (sources) {
+    updates.sources = sources;
+  }
+  await updateDoc(messageDoc(uid, convId, msgId), updates);
   await updateDoc(conversationDoc(uid, convId), {
     updatedAt: serverTimestamp(),
     totalTokens: tokens ?? { prompt: 0, completion: 0, thinking: 0 },
@@ -261,6 +273,50 @@ export async function finalizeAssistantMessage(
 export async function getUserSettings(uid: string) {
   const snap = await getDoc(userRef(uid));
   return snap.data()?.settings ?? null;
+}
+
+export async function updateMessage(
+  uid: string,
+  convId: string,
+  msgId: string,
+  updates: {
+    content?: string;
+    subject?: string | null;
+    attachments?: any[];
+  },
+) {
+  await updateDoc(messageDoc(uid, convId, msgId), updates);
+}
+
+export async function updateMessageFeedback(
+  uid: string,
+  convId: string,
+  msgId: string,
+  feedback: 'good' | 'bad' | null,
+) {
+  await updateDoc(messageDoc(uid, convId, msgId), { feedback });
+}
+
+export async function deleteMessagesFrom(
+  uid: string,
+  convId: string,
+  startMsgId: string,
+  inclusive?: boolean,
+) {
+  const snapshot = await getDocs(messagesCol(uid, convId));
+  const batch = writeBatch(db);
+  let found = false;
+  for (const docSnap of snapshot.docs) {
+    if (found) {
+      batch.delete(docSnap.ref);
+    } else if (docSnap.id === startMsgId) {
+      found = true;
+      if (inclusive) {
+        batch.delete(docSnap.ref);
+      }
+    }
+  }
+  if (found) await batch.commit();
 }
 
 export async function saveUserSettings(uid: string, settings: Record<string, any>) {

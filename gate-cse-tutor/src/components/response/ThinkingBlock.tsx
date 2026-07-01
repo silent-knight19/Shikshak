@@ -36,7 +36,7 @@ const ThinkingBlock: FC<ThinkingBlockProps> = ({ text, streaming }) => {
           padding: '7px 12px',
           cursor: 'pointer',
           userSelect: 'none',
-          fontSize: 11,
+          fontSize: '0.786em',
           fontWeight: 500,
           color: 'var(--text-muted)',
           letterSpacing: '0.3px',
@@ -90,7 +90,7 @@ const ThinkingBlock: FC<ThinkingBlockProps> = ({ text, streaming }) => {
           ref={contentRef}
           style={{
             padding: '8px 12px',
-            fontSize: 12,
+            fontSize: '0.857em',
             lineHeight: 1.6,
             color: 'var(--text-muted)',
             fontFamily: 'var(--font-mono)',

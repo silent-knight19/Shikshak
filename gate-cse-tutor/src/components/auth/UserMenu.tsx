@@ -31,7 +31,7 @@ const UserMenu: FC = () => {
         {user.photoURL ? (
           <img src={user.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
-          <div style={{ width: '100%', height: '100%', background: 'var(--accent-blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 600 }}>
+          <div style={{ width: '100%', height: '100%', background: 'var(--accent-blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.786em', fontWeight: 600 }}>
             {user.email?.[0].toUpperCase() ?? '?'}
           </div>
         )}
@@ -45,15 +45,15 @@ const UserMenu: FC = () => {
           boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
         }}>
           <div style={{ padding: '4px 8px 8px', borderBottom: '1px solid var(--border-subtle)', marginBottom: 4 }}>
-            <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-primary)' }}>{user.displayName}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>{user.email}</div>
+            <div style={{ fontSize: '0.857em', fontWeight: 500, color: 'var(--text-primary)' }}>{user.displayName}</div>
+            <div style={{ fontSize: '0.786em', color: 'var(--text-faint)' }}>{user.email}</div>
           </div>
           <button
             onClick={() => { signOutUser(); setOpen(false); }}
             style={{
               width: '100%', display: 'flex', alignItems: 'center', gap: 8,
               padding: '6px 8px', borderRadius: 6, border: 'none', background: 'transparent',
-              color: 'var(--status-error)', cursor: 'pointer', fontSize: 12,
+              color: 'var(--status-error)', cursor: 'pointer', fontSize: '0.857em',
               fontFamily: 'var(--font-sans)', textAlign: 'left',
             }}
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.08)'}

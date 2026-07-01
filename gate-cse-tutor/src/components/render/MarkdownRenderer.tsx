@@ -60,7 +60,7 @@ const MarkdownRenderer: FC<MarkdownRendererProps> = ({ content, suppressMermaid 
           <table style={{
             borderCollapse: 'collapse',
             width: '100%',
-            fontSize: 13,
+            fontSize: '0.929em',
             border: '1px solid var(--border)',
           }}>
             {children}
@@ -77,7 +77,7 @@ const MarkdownRenderer: FC<MarkdownRendererProps> = ({ content, suppressMermaid 
           fontWeight: 600,
           color: 'var(--text-heading)',
           background: 'var(--bg-surface)',
-          fontSize: 12,
+          fontSize: '0.857em',
           letterSpacing: '0.3px',
         }}>
           {children}
@@ -112,13 +112,13 @@ const MarkdownRenderer: FC<MarkdownRendererProps> = ({ content, suppressMermaid 
       );
     },
     h1({ children }: { children: ReactNode }) {
-      return <h1 style={{ color: 'var(--text-heading)', fontSize: 20, fontWeight: 600, margin: '20px 0 10px', lineHeight: 1.3 }}>{children}</h1>;
+      return <h1 style={{ color: 'var(--text-heading)', fontSize: '1.429em', fontWeight: 600, margin: '20px 0 10px', lineHeight: 1.3 }}>{children}</h1>;
     },
     h2({ children }: { children: ReactNode }) {
-      return <h2 style={{ color: 'var(--text-heading)', fontSize: 17, fontWeight: 600, margin: '18px 0 8px', lineHeight: 1.3 }}>{children}</h2>;
+      return <h2 style={{ color: 'var(--text-heading)', fontSize: '1.214em', fontWeight: 600, margin: '18px 0 8px', lineHeight: 1.3 }}>{children}</h2>;
     },
     h3({ children }: { children: ReactNode }) {
-      return <h3 style={{ color: 'var(--text-heading)', fontSize: 15, fontWeight: 600, margin: '16px 0 6px', lineHeight: 1.4 }}>{children}</h3>;
+      return <h3 style={{ color: 'var(--text-heading)', fontSize: '1.071em', fontWeight: 600, margin: '16px 0 6px', lineHeight: 1.4 }}>{children}</h3>;
     },
     p({ children }: { children: ReactNode }) {
       return <p style={{ margin: '10px 0', lineHeight: 1.75 }}>{children}</p>;

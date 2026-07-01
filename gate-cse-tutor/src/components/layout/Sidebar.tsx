@@ -203,19 +203,9 @@ const Sidebar: FC<SidebarProps> = ({ conversations, activeId, loading, onSelect,
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
-        <div style={{
-          width: 26,
-          height: 26,
-          borderRadius: 7,
-          background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="white" stroke="none">
-            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-          </svg>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img src="/shikshak-logo.png" alt="Shikshak Logo" style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover' }} />
+          <span style={{ fontSize: '1.1em', fontWeight: 600, color: 'var(--text-heading)', letterSpacing: '-0.02em' }}>Shikshak</span>
         </div>
       </div>
 
@@ -244,7 +234,7 @@ const Sidebar: FC<SidebarProps> = ({ conversations, activeId, loading, onSelect,
               border: 'none',
               outline: 'none',
               color: 'var(--text-primary)',
-              fontSize: 12,
+              fontSize: '0.857em',
               fontFamily: 'var(--font-sans)',
             }}
           />
@@ -253,7 +243,7 @@ const Sidebar: FC<SidebarProps> = ({ conversations, activeId, loading, onSelect,
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           )}
-          <span style={{ fontSize: 10, color: 'var(--text-faint)', border: '1px solid var(--border)', borderRadius: 3, padding: '1px 4px', flexShrink: 0 }}>⌘K</span>
+          <span style={{ fontSize: '0.714em', color: 'var(--text-faint)', border: '1px solid var(--border)', borderRadius: 3, padding: '1px 4px', flexShrink: 0 }}>⌘K</span>
         </div>
       </div>
 
@@ -273,7 +263,7 @@ const Sidebar: FC<SidebarProps> = ({ conversations, activeId, loading, onSelect,
             background: 'transparent',
             color: 'var(--text-muted)',
             cursor: 'pointer',
-            fontSize: 12,
+            fontSize: '0.857em',
             fontFamily: 'var(--font-sans)',
             fontWeight: 500,
             transition: 'all 0.12s',
@@ -292,7 +282,7 @@ const Sidebar: FC<SidebarProps> = ({ conversations, activeId, loading, onSelect,
       {/* Chat list header */}
       <div style={{
         padding: '8px 18px 4px',
-        fontSize: 10,
+        fontSize: '0.714em',
         fontWeight: 600,
         color: 'var(--text-faint)',
         letterSpacing: '0.8px',
@@ -302,22 +292,22 @@ const Sidebar: FC<SidebarProps> = ({ conversations, activeId, loading, onSelect,
         justifyContent: 'space-between',
       }}>
         <span>Chats</span>
-        <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{sorted.length}</span>
+        <span style={{ fontSize: '0.714em', color: 'var(--text-faint)' }}>{sorted.length}</span>
       </div>
 
       {/* Chat list */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '0 6px' }}>
         {loading ? (
           <div style={{ padding: '24px 16px', textAlign: 'center' }}>
-            <div style={{ color: 'var(--text-faint)', fontSize: 12 }}>Loading...</div>
+            <div style={{ color: 'var(--text-faint)', fontSize: '0.857em' }}>Loading...</div>
           </div>
         ) : sorted.length === 0 ? (
           <div style={{ padding: '24px 16px', textAlign: 'center' }}>
-            <div style={{ color: 'var(--text-faint)', fontSize: 12, marginBottom: 6 }}>
+            <div style={{ color: 'var(--text-faint)', fontSize: '0.857em', marginBottom: 6 }}>
               {search ? 'No results' : 'No chats yet'}
             </div>
             {!search && (
-              <button onClick={onNewChat} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)', fontSize: 12, padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}>
+              <button onClick={onNewChat} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)', fontSize: '0.857em', padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}>
                 Start a conversation
               </button>
             )}
@@ -448,7 +438,7 @@ const ChatItem: FC<{
               border: '1px solid var(--accent-blue)',
               borderRadius: 4,
               padding: '2px 6px',
-              fontSize: 13,
+              fontSize: '0.929em',
               color: 'var(--text-primary)',
               outline: 'none',
               fontFamily: 'var(--font-sans)',
@@ -456,7 +446,7 @@ const ChatItem: FC<{
           />
         ) : (
           <div style={{
-            fontSize: 13,
+            fontSize: '0.929em',
             fontWeight: active ? 500 : 400,
             color: active ? 'var(--text-heading)' : 'var(--text-primary)',
             lineHeight: 1.3,
@@ -469,7 +459,7 @@ const ChatItem: FC<{
         )}
         {!renaming && preview && (
           <div style={{
-            fontSize: 10,
+            fontSize: '0.714em',
             color: 'var(--text-faint)',
             lineHeight: 1.3,
             overflow: 'hidden',
@@ -482,7 +472,7 @@ const ChatItem: FC<{
         )}
       </div>
       {!renaming && (
-        <span style={{ fontSize: 10, color: 'var(--text-faint)', flexShrink: 0, opacity: hovered || active ? 1 : 0, transition: 'opacity 0.15s' }}>
+        <span style={{ fontSize: '0.714em', color: 'var(--text-faint)', flexShrink: 0, opacity: hovered || active ? 1 : 0, transition: 'opacity 0.15s' }}>
           {timeAgo(c.updatedAt)}
         </span>
       )}
@@ -537,7 +527,7 @@ const MenuItem: FC<{ icon: React.ReactNode; label: string; onClick: () => void; 
       width: '100%', display: 'flex', alignItems: 'center', gap: 7,
       padding: '5px 8px', borderRadius: 5, border: 'none', background: 'transparent',
       color: danger ? 'var(--status-error)' : 'var(--text-primary)',
-      cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-sans)',
+      cursor: 'pointer', fontSize: '0.857em', fontFamily: 'var(--font-sans)',
       transition: 'background 0.1s', textAlign: 'left',
     }}
     onMouseEnter={e => e.currentTarget.style.background = danger ? 'rgba(239,68,68,0.08)' : 'var(--bg-hover)'}

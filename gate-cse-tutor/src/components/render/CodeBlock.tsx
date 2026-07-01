@@ -28,7 +28,7 @@ const CodeBlock: FC<CodeBlockProps> = ({ language, children }) => {
       {/* Header bar */}
       <div style={{
         padding: '5px 12px',
-        fontSize: 11,
+        fontSize: '0.786em',
         color: 'var(--text-faint)',
         borderBottom: '1px solid var(--border)',
         background: 'var(--thinking-bg)',
@@ -58,7 +58,7 @@ const CodeBlock: FC<CodeBlockProps> = ({ language, children }) => {
             cursor: 'pointer',
             padding: '2px 6px',
             borderRadius: 'var(--radius-sm)',
-            fontSize: 11,
+            fontSize: '0.786em',
             fontFamily: 'var(--font-sans)',
             display: 'flex',
             alignItems: 'center',

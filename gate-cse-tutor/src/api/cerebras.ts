@@ -1,5 +1,5 @@
 import type { StreamChunk, Attachment } from '../store/types';
-import { extractJsonObjects, parseResponseObject } from '../utils/stream-parser';
+import { extractSSEEvents, parseSSEEvent } from '../utils/stream-parser';
 import { auth } from '../firebase/config';
 
 async function getIdToken(): Promise<string | null> {
@@ -8,37 +8,44 @@ async function getIdToken(): Promise<string | null> {
   } catch { return null; }
 }
 
-export async function* streamGemmaResponse(
+export async function* streamCerebrasResponse(
   messages: { role: string; text: string; attachments?: Attachment[] }[],
   systemInstruction: string,
   signal?: AbortSignal,
   visualiseMode = false,
   imageParts?: { mimeType: string; data: string }[],
+  _webSearch = false,
 ): AsyncGenerator<StreamChunk> {
-  const contents = messages.map((m, idx) => {
-    const parts: any[] = [];
+  const openAIMessages: any[] = [
+    { role: 'system', content: systemInstruction }
+  ];
 
-    if (idx === messages.length - 1 && m.role === 'user' && imageParts?.length) {
+  for (let idx = 0; idx < messages.length; idx++) {
+    const m = messages[idx];
+    const role = m.role === 'assistant' ? 'assistant' : 'user';
+
+    if (idx === messages.length - 1 && role === 'user' && imageParts?.length) {
+      const contentParts: any[] = [{ type: 'text', text: m.text }];
       for (const img of imageParts) {
-        parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
+        contentParts.push({
+          type: 'image_url',
+          image_url: { url: `data:${img.mimeType};base64,${img.data}` }
+        });
       }
+      openAIMessages.push({ role, content: contentParts });
+    } else {
+      openAIMessages.push({ role, content: m.text });
     }
+  }
 
-    parts.push({ text: m.text });
-    return { role: m.role === 'assistant' ? 'model' : 'user', parts };
-  });
+  const modelName = (imageParts && imageParts.length > 0) ? 'gemma-4-31b' : 'gpt-oss-120b';
 
-  const body = {
-    model: 'gemma-4-31b-it',
-    contents,
-    systemInstruction: {
-      parts: [{ text: systemInstruction }],
-    },
-    generationConfig: {
-      temperature: 0.7,
-      maxOutputTokens: visualiseMode ? 32768 : 8192,
-      thinkingConfig: { thinkingLevel: 'high' },
-    },
+  const body: any = {
+    model: modelName,
+    messages: openAIMessages,
+    stream: true,
+    temperature: 0.7,
+    max_completion_tokens: visualiseMode ? 32768 : 8192,
   };
 
   const token = await getIdToken();
@@ -78,21 +85,24 @@ export async function* streamGemmaResponse(
 
       buffer += decoder.decode(value, { stream: true });
 
-      // Extract complete JSON objects from the streamed JSON array
-      const { objects, remaining } = extractJsonObjects(buffer);
+      const { events, remaining } = extractSSEEvents(buffer);
       buffer = remaining;
 
-      for (const obj of objects) {
-        const chunk = parseResponseObject(obj);
+      for (const event of events) {
+        if (event === '[DONE]') {
+          yield { text: '', thought: false, done: true };
+          break;
+        }
+        const chunk = parseSSEEvent(event);
         if (chunk) yield chunk;
       }
     }
 
-    // Process remaining buffer
     if (buffer.trim()) {
-      const { objects } = extractJsonObjects(buffer);
-      for (const obj of objects) {
-        const chunk = parseResponseObject(obj);
+      const { events } = extractSSEEvents(buffer);
+      for (const event of events) {
+        if (event === '[DONE]') continue;
+        const chunk = parseSSEEvent(event);
         if (chunk) yield chunk;
       }
     }

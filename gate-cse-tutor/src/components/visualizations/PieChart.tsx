@@ -18,7 +18,7 @@ export default function PieChart({ data }: Props) {
   [data]);
 
   return (
-    <ResponsiveContainer width="100%" height={360}>
+    <ResponsiveContainer width="100%" height={400}>
       <RechartsPie margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
         <Pie
           data={chartData}
@@ -26,18 +26,20 @@ export default function PieChart({ data }: Props) {
           nameKey="name"
           cx="50%"
           cy="50%"
-          outerRadius={130}
-          innerRadius={50}
+          outerRadius={140}
+          innerRadius={55}
           paddingAngle={2}
           label
           labelLine
         >
           {chartData.map((_, i) => (
-            <Cell key={i} fill={data.colors?.[i] ?? CHART_COLORS[i % CHART_COLORS.length]} stroke="#fff" strokeWidth={2} />
+            <Cell key={i} fill={data.colors?.[i] ?? CHART_COLORS[i % CHART_COLORS.length]} stroke="var(--bg-surface)" strokeWidth={2} />
           ))}
         </Pie>
-        <Tooltip />
-        <Legend />
+        <Tooltip
+          contentStyle={{ fontSize: '0.857em', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)' }}
+        />
+        <Legend wrapperStyle={{ color: 'var(--text-muted)' }} />
       </RechartsPie>
     </ResponsiveContainer>
   );

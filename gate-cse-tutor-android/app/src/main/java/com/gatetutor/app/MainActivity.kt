@@ -3,8 +3,6 @@ package com.gatetutor.app
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -12,12 +10,17 @@ import android.os.Message
 import android.provider.MediaStore
 import android.view.KeyEvent
 import android.view.View
+import android.view.WindowManager
 import android.webkit.*
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 import java.io.File
@@ -29,6 +32,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var progressBar: ProgressBar
     private lateinit var errorView: LinearLayout
+    private lateinit var swipeRefresh: SwipeRefreshLayout
+    private lateinit var rootContainer: View
 
     private var currentUrl: String = ""
     private var uploadMessage: ValueCallback<Array<Uri>>? = null
@@ -67,6 +72,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         super.onCreate(savedInstanceState)
 
         val sharedPrefs = getSharedPreferences("gate_tutor_prefs", Context.MODE_PRIVATE)
@@ -75,15 +81,34 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
 
+        rootContainer = findViewById(R.id.rootContainer)
         webView = findViewById(R.id.webView)
         progressBar = findViewById(R.id.progressBar)
         errorView = findViewById(R.id.errorView)
+        swipeRefresh = findViewById(R.id.swipeRefresh)
 
+        setupEdgeToEdge()
         setupWebView()
-        setupErrorView()
+        setupSwipeRefresh()
         loadUrl(currentUrl)
 
-        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 101)
+            }
+        }
+    }
+
+    private fun setupEdgeToEdge() {
+        rootContainer.setOnApplyWindowInsetsListener { view, insets ->
+            val statusBarInsets = insets.getInsets(WindowInsetsCompat.Type.statusBars())
+            view.updatePadding(top = statusBarInsets.top)
+            insets
+        }
     }
 
     private fun setupWebView() {
@@ -95,16 +120,23 @@ class MainActivity : AppCompatActivity() {
         settings.allowContentAccess = true
         settings.setSupportMultipleWindows(false)
         settings.javaScriptCanOpenWindowsAutomatically = false
-        settings.loadWithOverviewMode = true
         settings.useWideViewPort = true
+        settings.loadWithOverviewMode = true
+        settings.setSupportZoom(true)
+        settings.builtInZoomControls = true
         settings.displayZoomControls = false
-        settings.cacheMode = WebSettings.LOAD_DEFAULT
+        settings.textZoom = 100
+        settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-        settings.userAgentString = settings.userAgentString.replace("; wv", "")
+        settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
-            WebSettingsCompat.setForceDark(webView.settings, WebSettingsCompat.FORCE_DARK_AUTO)
+        @Suppress("DEPRECATION")
+        fun applyForceDark() {
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
+                WebSettingsCompat.setForceDark(webView.settings, WebSettingsCompat.FORCE_DARK_AUTO)
+            }
         }
+        applyForceDark()
 
         webView.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
@@ -165,12 +197,20 @@ class MainActivity : AppCompatActivity() {
             ): Boolean {
                 return false
             }
+
+            override fun onPermissionRequest(request: PermissionRequest) {
+                runOnUiThread {
+                    request.grant(request.resources)
+                }
+            }
         }
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
+                swipeRefresh.isRefreshing = false
                 errorView.visibility = View.GONE
                 webView.visibility = View.VISIBLE
+                injectMobileOptimizations(view)
             }
 
             override fun onReceivedError(
@@ -179,8 +219,11 @@ class MainActivity : AppCompatActivity() {
                 error: WebResourceError?
             ) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    if (error?.errorCode == ERROR_HOST_LOOKUP || error?.errorCode == ERROR_CONNECT) {
+                    if (error?.errorCode == ERROR_HOST_LOOKUP || error?.errorCode == ERROR_CONNECT
+                        || error?.errorCode == ERROR_TIMEOUT
+                    ) {
                         if (view?.url == currentUrl || request?.isForMainFrame == true) {
+                            swipeRefresh.isRefreshing = false
                             showError()
                         }
                     }
@@ -192,10 +235,11 @@ class MainActivity : AppCompatActivity() {
                 request: WebResourceRequest?
             ): Boolean {
                 val url = request?.url?.toString() ?: return false
-                if (url.startsWith(currentUrl) || 
+                if (url.startsWith(currentUrl) ||
                     url.startsWith("https://gate-cse-tutor") ||
                     url.contains("firebaseapp.com") ||
-                    url.contains("accounts.google.com")) {
+                    url.contains("accounts.google.com")
+                ) {
                     return false
                 }
                 if (url.startsWith("http://") || url.startsWith("https://")) {
@@ -223,18 +267,43 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupErrorView() {
-        val retryButton = errorView.findViewById<Button>(R.id.retryButton)
-        val settingsButton = errorView.findViewById<Button>(R.id.settingsButton)
+    private fun injectMobileOptimizations(view: WebView?) {
+        view?.evaluateJavascript(
+            """
+            (function() {
+                var meta = document.querySelector('meta[name="viewport"]');
+                if (!meta) {
+                    meta = document.createElement('meta');
+                    meta.name = 'viewport';
+                    document.head.insertBefore(meta, document.head.firstChild);
+                }
+                meta.content = 'width=device-width, initial-scale=1';
+                
+                if (!document.getElementById('mob-opt')) {
+                    var s = document.createElement('style');
+                    s.id = 'mob-opt';
+                    s.textContent = [
+                        'input,textarea,select{font-size:16px!important}',
+                        'body{-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-x:hidden}',
+                        'a,button,[role="button"],input[type="submit"],input[type="button"]{min-height:44px!important;touch-action:manipulation;cursor:pointer}',
+                        'img{max-width:100%!important;height:auto}',
+                        'pre,code{white-space:pre-wrap;word-break:break-word}'
+                    ].join('\n');
+                    document.head.appendChild(s);
+                }
+            })();
+            """.trimIndent(), null
+        )
+    }
 
-        retryButton.setOnClickListener {
-            errorView.visibility = View.GONE
-            webView.visibility = View.VISIBLE
-            loadUrl(currentUrl)
-        }
-
-        settingsButton.setOnClickListener {
-            showSettingsDialog()
+    private fun setupSwipeRefresh() {
+        swipeRefresh.setColorSchemeResources(R.color.primary)
+        swipeRefresh.setOnRefreshListener {
+            if (errorView.visibility == View.VISIBLE) {
+                errorView.visibility = View.GONE
+                webView.visibility = View.VISIBLE
+            }
+            webView.reload()
         }
     }
 
@@ -264,11 +333,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK && webView.canGoBack()) {
-            webView.goBack()
-            return true
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            if (webView.canGoBack()) {
+                webView.goBack()
+                return true
+            }
         }
         return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        webView.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        webView.onResume()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        webView.saveState(outState)
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
+        super.onRestoreInstanceState(savedInstanceState)
+        webView.restoreState(savedInstanceState)
     }
 
     private fun showSettingsDialog() {

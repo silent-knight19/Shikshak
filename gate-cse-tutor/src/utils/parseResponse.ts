@@ -8,9 +8,7 @@ export function parseResponse(rawText: string): { textContent: string; visualiza
     const matches = [...rawText.matchAll(vizTagRegex)];
     let textContent = rawText.replace(vizTagRegex, '').trim();
 
-    // Strip Mermaid code blocks from text
-    textContent = textContent.replace(/```mermaid[\s\S]*?```/gi, '').trim();
-    textContent = textContent.replace(/```mmd[\s\S]*?```/gi, '').trim();
+
 
     // Collect valid JSON payloads
     const payloads: string[] = [];

@@ -9,9 +9,10 @@ import StreamingCursor from './components/response/StreamingCursor';
 import LoadingDots from './components/response/LoadingDots';
 import MarkdownRenderer from './components/render/MarkdownRenderer';
 import VizFrame from './components/response/VizFrame';
+import SearchSources from './components/response/SearchSources';
+import WebSearchToggle from './components/input/WebSearchToggle';
 import GoogleSignIn from './components/auth/GoogleSignIn';
 import UserMenu from './components/auth/UserMenu';
-import SettingsModal from './components/settings/SettingsModal';
 import { useAuth } from './firebase/auth';
 import { useConversations } from './hooks/useConversations';
 import { useMessages } from './hooks/useMessages';
@@ -23,9 +24,11 @@ import {
   createAssistantMessage as fbCreateAssistantMessage,
   updateAssistantMessage as fbUpdateAssistantMessage,
   finalizeAssistantMessage as fbFinalizeAssistantMessage,
+  updateMessage as fbUpdateMessage,
+  deleteMessagesFrom as fbDeleteMessagesFrom,
+  updateMessageFeedback as fbUpdateMessageFeedback,
 } from './firebase/db';
-import type { SubjectTag, Attachment } from './store/types';
-import { SUBJECT_TAGS } from './store/types';
+import type { SubjectTag, Attachment, FirestoreMessage } from './store/types';
 import { parseResponse } from './utils/parseResponse';
 
 function TypewriterFormatted({ text, streaming }: { text: string; streaming: boolean }) {
@@ -85,9 +88,7 @@ export default function App() {
   const [activeId, setActiveId] = useState<string | null>(() => {
     try { return localStorage.getItem('gate-tutor-active-id'); } catch { return null; }
   });
-  const [showSettings, setShowSettings] = useState(false);
   const [inputText, setInputText] = useState('');
-  const [inputFocused, setInputFocused] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<SubjectTag | null>(null);
   const [showSubjectMenu, setShowSubjectMenu] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -99,6 +100,10 @@ export default function App() {
   const subjectMenuRef = useRef<HTMLDivElement>(null);
   const subjectBtnRef = useRef<HTMLButtonElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const userIsNearBottomRef = useRef(true);
+
   const [pendingFiles, setPendingFiles] = useState<{
     id: string;
     file: File;
@@ -123,12 +128,23 @@ export default function App() {
   const visualiseMode = settings.visualiseMode;
 
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoSendRef = useRef(false);
+  const inputTextRef = useRef(inputText);
+  
+  const triggerSendEvent = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('gate-tutor-auto-send'));
+  }, []);
+
+  useEffect(() => {
+    inputTextRef.current = inputText;
+  }, [inputText]);
 
   useEffect(() => {
     if (listening) {
       setInputText(textBeforeDictationRef.current + (textBeforeDictationRef.current && transcript ? ' ' : '') + transcript);
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = setTimeout(() => {
+        autoSendRef.current = true;
         SpeechRecognition.stopListening();
       }, 3000);
     } else {
@@ -138,6 +154,47 @@ export default function App() {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     };
   }, [transcript, listening]);
+
+  useEffect(() => {
+    if (!listening && autoSendRef.current) {
+      autoSendRef.current = false;
+      setTimeout(() => {
+        triggerSendEvent();
+      }, 50);
+    }
+  }, [listening, triggerSendEvent]);
+
+  useEffect(() => {
+    let spacePressed = false;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !spacePressed) {
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+        e.preventDefault();
+        spacePressed = true;
+        textBeforeDictationRef.current = inputTextRef.current;
+        resetTranscript();
+        SpeechRecognition.startListening({ continuous: true });
+      }
+    };
+    
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && spacePressed) {
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+        spacePressed = false;
+        autoSendRef.current = true;
+        SpeechRecognition.stopListening();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [resetTranscript]);
 
   const toggleVoice = () => {
     if (listening) {
@@ -155,6 +212,8 @@ export default function App() {
     thinkingText: streamingThinking,
     error: streamError,
     tokenUsage: liveTokenUsage,
+    searchStatus,
+    sources: streamSources,
     startStream,
     stopStream,
   } = useStreaming();
@@ -169,8 +228,22 @@ export default function App() {
   }, [showAddMenu]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (userIsNearBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, streamingAnswer]);
+
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      const threshold = 100;
+      userIsNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+    };
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     const ta = textareaRef.current;
@@ -183,8 +256,7 @@ export default function App() {
     if (!showSubjectMenu && !showAddMenu) return;
     const handler = (e: MouseEvent) => {
       if (
-        subjectMenuRef.current && !subjectMenuRef.current.contains(e.target as Node) &&
-        subjectBtnRef.current && !subjectBtnRef.current.contains(e.target as Node)
+        subjectMenuRef.current && !subjectMenuRef.current.contains(e.target as Node)
       ) {
         setShowSubjectMenu(false);
       }
@@ -214,6 +286,73 @@ export default function App() {
     if (streaming) return;
     if (pendingFiles.some(p => p.uploading)) return;
 
+    const uid = user!.uid;
+
+    if (editingMsgId) {
+      await fbUpdateMessage(uid, activeId!, editingMsgId, { content: text });
+      await fbDeleteMessagesFrom(uid, activeId!, editingMsgId, false);
+      setInputText('');
+      setEditingMsgId(null);
+      setPendingFiles([]);
+
+      const editIndex = messages.findIndex(m => m.id === editingMsgId);
+      const prevMsgs = editIndex >= 0 ? messages.slice(0, editIndex) : messages;
+      const msgsForApi = prevMsgs.concat({
+        id: '',
+        role: 'user' as const,
+        content: text,
+        subject: selectedSubject,
+        attachments: undefined,
+        thinkingTrace: '',
+        status: 'completed',
+        createdAt: Date.now(),
+      }).map(m => ({
+        role: m.role,
+        text: m.content,
+        attachments: m.attachments,
+      }));
+
+      const assistantMsgId = await fbCreateAssistantMessage(uid, activeId!, selectedSubject);
+
+      let lastFlushAnswer = '';
+      let lastFlushThinking = '';
+
+      const result = await startStream(
+        msgsForApi,
+        selectedSubject ? [selectedSubject] : [],
+        visualiseMode,
+        undefined,
+        settings.webSearch,
+        (fullAnswer, fullThinking, usage) => {
+          if (!assistantMsgId) return;
+          const shouldFlush = fullAnswer.length - lastFlushAnswer.length > 200 ||
+            fullThinking.length - lastFlushThinking.length > 200;
+          if (shouldFlush) {
+            lastFlushAnswer = fullAnswer;
+            lastFlushThinking = fullThinking;
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+            debounceRef.current = setTimeout(() => {
+              fbUpdateAssistantMessage(uid, activeId!, assistantMsgId, {
+                content: fullAnswer,
+                thinkingTrace: fullThinking,
+                tokens: usage ?? null,
+              });
+            }, 200);
+          }
+        },
+      );
+
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+
+      if (result && assistantMsgId) {
+        const { textContent, visualizationHTML } = parseResponse(result.answer);
+        await fbFinalizeAssistantMessage(uid, activeId!, assistantMsgId, textContent, result.thinking, result.tokenUsage, visualizationHTML, result.sources);
+      } else if (assistantMsgId) {
+        await fbUpdateAssistantMessage(uid, activeId!, assistantMsgId, { status: 'error' });
+      }
+      return;
+    }
+
     const convId = await ensureConversation(selectedSubject);
 
     const attachments: Attachment[] = [];
@@ -236,7 +375,6 @@ export default function App() {
       }
     }
 
-    const uid = user!.uid;
     await fbAddUserMessage(uid, convId, text, selectedSubject, attachments.length > 0 ? attachments : undefined);
     setInputText('');
     setPendingFiles([]);
@@ -265,6 +403,7 @@ export default function App() {
       selectedSubject ? [selectedSubject] : [],
       visualiseMode,
       imageParts.length > 0 ? imageParts : undefined,
+      settings.webSearch,
       (fullAnswer, fullThinking, usage) => {
         if (!assistantMsgId) return;
         const shouldFlush = fullAnswer.length - lastFlushAnswer.length > 200 ||
@@ -287,12 +426,20 @@ export default function App() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     if (result && assistantMsgId) {
-      const { textContent } = parseResponse(result.answer);
-      await fbFinalizeAssistantMessage(uid, convId, assistantMsgId, textContent, result.thinking, result.tokenUsage);
+      const { textContent, visualizationHTML } = parseResponse(result.answer);
+      await fbFinalizeAssistantMessage(uid, convId, assistantMsgId, textContent, result.thinking, result.tokenUsage, visualizationHTML, result.sources);
     } else if (assistantMsgId) {
       await fbUpdateAssistantMessage(uid, convId, assistantMsgId, { status: 'error' });
     }
-  }, [inputText, pendingFiles, streaming, selectedSubject, ensureConversation, messages, startStream, visualiseMode, user]);
+  }, [inputText, pendingFiles, streaming, selectedSubject, ensureConversation, messages, editingMsgId, activeId, startStream, settings.webSearch, visualiseMode, user]);
+
+  useEffect(() => {
+    const handleAutoSend = () => {
+      handleSendMessage();
+    };
+    window.addEventListener('gate-tutor-auto-send', handleAutoSend);
+    return () => window.removeEventListener('gate-tutor-auto-send', handleAutoSend);
+  }, [handleSendMessage]);
 
   const handleNewChat = useCallback(async () => {
     const id = await createConversation(selectedSubject);
@@ -323,7 +470,7 @@ export default function App() {
         if (addMenuIndex === 0) {
           fileInputRef.current?.click();
         } else if (addMenuIndex === 1) {
-          saveSettings({ ...settings, visualiseMode: !settings.visualiseMode });
+          // No-op
         } else if (addMenuIndex === 2) {
           setShowSubjectMenu(true);
         }
@@ -341,9 +488,93 @@ export default function App() {
       if (canSend) handleSendMessage();
     } else if (e.key === '/' && inputText.trim() === '') {
       e.preventDefault();
-      setShowAddMenu(true);
+      setShowAddMenu(prev => !prev);
     }
   };
+
+  const handleEditMessage = useCallback((msg: FirestoreMessage) => {
+    setInputText(msg.content);
+    setEditingMsgId(msg.id);
+    textareaRef.current?.focus();
+  }, []);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingMsgId(null);
+    setInputText('');
+  }, []);
+
+  const handleRegenerate = useCallback(async (msgId: string) => {
+    if (!user || !activeId || streaming) return;
+    const msgs = messages;
+    const msgIndex = msgs.findIndex(m => m.id === msgId);
+    if (msgIndex < 0) return;
+
+    await fbDeleteMessagesFrom(user.uid, activeId, msgId, true);
+
+    const prevMsgs = msgs.slice(0, msgIndex);
+    const lastUserMsg = [...prevMsgs].reverse().find(m => m.role === 'user');
+    if (!lastUserMsg) return;
+
+    const msgsForApi = prevMsgs.concat({
+      id: '',
+      role: 'user' as const,
+      content: lastUserMsg.content,
+      subject: lastUserMsg.subject,
+      attachments: lastUserMsg.attachments,
+      thinkingTrace: '',
+      status: 'completed',
+      createdAt: Date.now(),
+    }).map(m => ({
+      role: m.role,
+      text: m.content,
+      attachments: m.attachments,
+    }));
+
+    const imageParts: { mimeType: string; data: string }[] = [];
+    const assistantMsgId = await fbCreateAssistantMessage(user.uid, activeId, lastUserMsg.subject);
+
+    let lastFlushAnswer = '';
+    let lastFlushThinking = '';
+
+    const result = await startStream(
+      msgsForApi,
+      lastUserMsg.subject ? [lastUserMsg.subject as SubjectTag] : [],
+      visualiseMode,
+      imageParts.length > 0 ? imageParts : undefined,
+      settings.webSearch,
+      (fullAnswer, fullThinking, usage) => {
+        if (!assistantMsgId) return;
+        const shouldFlush = fullAnswer.length - lastFlushAnswer.length > 200 ||
+          fullThinking.length - lastFlushThinking.length > 200;
+        if (shouldFlush) {
+          lastFlushAnswer = fullAnswer;
+          lastFlushThinking = fullThinking;
+          if (debounceRef.current) clearTimeout(debounceRef.current);
+          debounceRef.current = setTimeout(() => {
+            fbUpdateAssistantMessage(user.uid, activeId, assistantMsgId, {
+              content: fullAnswer,
+              thinkingTrace: fullThinking,
+              tokens: usage ?? null,
+            });
+          }, 200);
+        }
+      },
+    );
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (result && assistantMsgId) {
+      const { textContent, visualizationHTML } = parseResponse(result.answer);
+      await fbFinalizeAssistantMessage(user.uid, activeId, assistantMsgId, textContent, result.thinking, result.tokenUsage, visualizationHTML, result.sources);
+    } else if (assistantMsgId) {
+      await fbUpdateAssistantMessage(user.uid, activeId, assistantMsgId, { status: 'error' });
+    }
+  }, [user, activeId, streaming, messages, startStream, visualiseMode, settings.webSearch]);
+
+  const handleFeedback = useCallback(async (msgId: string, vote: 'good' | 'bad' | null) => {
+    if (!user || !activeId) return;
+    await fbUpdateMessageFeedback(user.uid, activeId, msgId, vote);
+  }, [user, activeId]);
 
   const handleChipClick = (text: string) => {
     setInputText(text);
@@ -404,17 +635,16 @@ export default function App() {
   };
 
   const contextUsed = useMemo(() => {
-    if (streaming && liveTokenUsage) {
-      return liveTokenUsage.prompt + liveTokenUsage.completion;
-    }
-    if (messages.length === 0) return 0;
     let total = 0;
     for (const m of messages) {
       if (m.tokens) {
-        total = m.tokens.prompt + m.tokens.completion;
+        total += m.tokens.prompt + m.tokens.completion;
       } else {
         total += Math.round((m.content.length + m.thinkingTrace.length) / 4);
       }
+    }
+    if (streaming && liveTokenUsage) {
+      total += liveTokenUsage.prompt + liveTokenUsage.completion;
     }
     return total;
   }, [messages, streaming, liveTokenUsage]);
@@ -430,7 +660,7 @@ export default function App() {
         width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: 'var(--bg-root)',
       }}>
-        <div style={{ color: 'var(--text-faint)', fontSize: 14 }}>Loading...</div>
+        <div style={{ color: 'var(--text-faint)', fontSize: '1em' }}>Loading...</div>
       </div>
     );
   }
@@ -439,13 +669,6 @@ export default function App() {
 
   return (
     <div style={{ animation: 'appFadeIn 0.3s ease' }}>
-      {showSettings && (
-        <SettingsModal
-          settings={settings}
-          onSave={(s) => { saveSettings(s); setShowSettings(false); }}
-          onClose={() => setShowSettings(false)}
-        />
-      )}
       <AppShell
         sidebar={
           <Sidebar
@@ -471,33 +694,18 @@ export default function App() {
             display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
             padding: '8px 16px', gap: 8, flexShrink: 0,
           }}>
-            <button
-              onClick={() => setShowSettings(true)}
-              style={{
-                background: 'transparent', border: 'none', color: 'var(--text-faint)',
-                cursor: 'pointer', padding: 6, borderRadius: 6, display: 'flex',
-                alignItems: 'center', justifyContent: 'center',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-              </svg>
-            </button>
             <UserMenu />
           </div>
 
           {/* Messages area */}
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <div ref={messagesContainerRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
             {showEmpty ? (
               <div style={{
                 flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
                 justifyContent: 'center', padding: '0 24px', animation: 'fadeIn 0.5s ease',
               }}>
                 <div style={{
-                  fontSize: 32, fontWeight: 400, color: 'var(--text-heading)',
+                  fontSize: '2.286em', fontWeight: 400, color: 'var(--text-heading)',
                   textAlign: 'center', lineHeight: 1.3, letterSpacing: '-0.02em',
                   marginBottom: 40,
                 }}>
@@ -513,7 +721,7 @@ export default function App() {
                       style={{
                         background: 'var(--bg-surface)',
                         border: '1px solid rgba(255,255,255,0.08)',
-                        color: 'var(--text-muted)', fontSize: 13,
+                        color: 'var(--text-muted)', fontSize: '0.929em',
                         padding: '8px 16px', borderRadius: 'var(--radius-pill)',
                         cursor: 'pointer', fontFamily: 'var(--font-sans)',
                         transition: 'all var(--transition-fast)',
@@ -536,11 +744,25 @@ export default function App() {
               </div>
             ) : (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ maxWidth: 960, width: '100%', margin: '0 auto', padding: '24px 48px', flex: 1 }}>
+                <div style={{
+                  width: '100%', margin: '0 auto', padding: '24px 48px', flex: 1 }}>
                   {displayMessages
                     .filter(msg => !(streaming && msg.status === 'streaming'))
                     .map(msg => (
-                    <MessageBubble key={msg.id} role={msg.role}>
+                    <MessageBubble
+                      key={msg.id}
+                      role={msg.role}
+                      timestamp={msg.createdAt}
+                      streaming={streaming && msg.status === 'streaming'}
+                      actions={msg.status === 'completed' ? {
+                        role: msg.role,
+                        content: msg.content,
+                        feedback: msg.feedback ?? null,
+                        onEdit: msg.role === 'user' ? () => handleEditMessage(msg) : undefined,
+                        onRegenerate: msg.role === 'assistant' ? () => handleRegenerate(msg.id) : undefined,
+                        onFeedback: (vote) => handleFeedback(msg.id, vote),
+                      } : undefined}
+                    >
                       {msg.role === 'user' ? (
                         <div>
                           {msg.attachments && msg.attachments.length > 0 && (
@@ -553,7 +775,7 @@ export default function App() {
                                   />
                                 ) : (
                                   <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer"
-                                    style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '5px 10px', color: 'var(--accent-blue)', textDecoration: 'none', fontSize: 12 }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '5px 10px', color: 'var(--accent-blue)', textDecoration: 'none', fontSize: '0.857em' }}
                                   >
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -565,7 +787,7 @@ export default function App() {
                               ))}
                             </div>
                           )}
-                          <div style={{ color: 'var(--text-user)', fontSize: 14, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                          <div style={{ color: 'var(--text-user)', fontSize: '1em', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
                             {msg.content}
                           </div>
                         </div>
@@ -581,6 +803,7 @@ export default function App() {
                             <>
                               <MarkdownRenderer content={msg.content} suppressMermaid={!!msg.visualizationHTML} />
                               <VizFrame html={msg.visualizationHTML ?? null} />
+                              {msg.sources && <SearchSources sources={msg.sources} />}
                             </>
                           )}
                         </div>
@@ -590,15 +813,45 @@ export default function App() {
 
                   {streaming && (
                     <MessageBubble role="assistant">
+                      {searchStatus && !streamingAnswer && (
+                        <div style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          color: 'var(--accent-blue)', fontSize: '0.929em',
+                          padding: '12px 0',
+                        }}>
+                          <div style={{
+                            width: 16, height: 16, border: '2px solid var(--accent-blue)',
+                            borderTopColor: 'transparent', borderRadius: '50%',
+                            animation: 'spin 0.8s linear infinite',
+                            flexShrink: 0,
+                          }} />
+                          {searchStatus}
+                        </div>
+                      )}
                       {streamingThinking && <ThinkingBlock text={streamingThinking} streaming={true} />}
+                      {!searchStatus && streamingThinking && !streamingAnswer && (
+                        <LoadingDots />
+                      )}
                       {streamingAnswer ? (
                         <>
+                          {searchStatus && (
+                            <div style={{
+                              fontSize: '0.786em', color: 'var(--accent-blue)',
+                              marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6,
+                            }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12"/>
+                              </svg>
+                              {searchStatus}
+                            </div>
+                          )}
                           <TypewriterFormatted text={streamingAnswer} streaming={true} />
                           <StreamingCursor />
                         </>
-                      ) : !streamingThinking ? (
+                      ) : !streamingThinking && !searchStatus ? (
                         <LoadingDots />
                       ) : null}
+                      {streamSources.length > 0 && <SearchSources sources={streamSources} />}
                     </MessageBubble>
                   )}
 
@@ -607,7 +860,7 @@ export default function App() {
                       padding: '10px 14px', marginTop: 8,
                       border: '1px solid var(--status-error)', borderRadius: 'var(--radius)',
                       background: 'var(--status-error-bg)', color: 'var(--status-error)',
-                      fontSize: 13, animation: 'slideInError 0.25s ease',
+                      fontSize: '0.929em', animation: 'slideInError 0.25s ease',
                     }}>
                       {streamError}
                     </div>
@@ -622,34 +875,118 @@ export default function App() {
           <div style={{ padding: '0 48px 24px', background: 'var(--bg-root)' }}>
             <div style={{ maxWidth: 960, margin: '0 auto', position: 'relative' }}>
               {showSubjectMenu && (
-                <div ref={subjectMenuRef} style={{
-                  position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, right: 0,
-                  background: 'var(--bg-surface)', border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: 16, padding: 10, zIndex: 50, animation: 'fadeIn 0.15s ease',
-                  boxShadow: '0 -8px 40px rgba(0,0,0,0.5)',
-                }}>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    <button onClick={() => handleSubjectSelect(null)} style={{
-                      background: selectedSubject === null ? 'rgba(138,180,248,0.15)' : 'transparent',
-                      border: '1px solid', fontSize: 12, fontWeight: 500, padding: '6px 14px',
-                      borderRadius: 'var(--radius-pill)', cursor: 'pointer', fontFamily: 'var(--font-sans)',
-                      borderColor: selectedSubject === null ? 'rgba(138,180,248,0.4)' : 'rgba(255,255,255,0.1)',
-                      color: selectedSubject === null ? 'var(--accent-blue)' : 'var(--text-muted)',
-                      transition: 'all var(--transition-fast)',
-                    }}>General</button>
-                    {SUBJECT_TAGS.map(subject => {
-                      const active = selectedSubject === subject;
-                      return (
-                        <button key={subject} onClick={() => handleSubjectSelect(subject)} style={{
-                          background: active ? 'rgba(138,180,248,0.15)' : 'transparent',
-                          border: '1px solid', fontSize: 12, fontWeight: 500, padding: '6px 14px',
-                          borderRadius: 'var(--radius-pill)', cursor: 'pointer', fontFamily: 'var(--font-sans)',
-                          borderColor: active ? 'rgba(138,180,248,0.4)' : 'rgba(255,255,255,0.1)',
-                          color: active ? 'var(--accent-blue)' : 'var(--text-muted)',
-                          transition: 'all var(--transition-fast)',
-                        }}>{subject}</button>
-                      );
-                    })}
+                <div ref={subjectMenuRef} className="subject-menu-container">
+                  <div className="subject-menu-grid">
+                    {/* Column 1: Maths & Aptitude */}
+                    <div className="subject-menu-column">
+                      <div className="subject-menu-col-title">Maths & Aptitude</div>
+                      
+                      <button 
+                        onClick={() => handleSubjectSelect(null)}
+                        className={`subject-menu-btn ${selectedSubject === null ? 'active' : ''}`}
+                      >
+                        <span className="subject-dot" />
+                        General
+                      </button>
+
+                      <button 
+                        onClick={() => handleSubjectSelect('Discrete Mathematics')}
+                        className={`subject-menu-btn ${selectedSubject === 'Discrete Mathematics' ? 'active' : ''}`}
+                      >
+                        <span className="subject-dot" />
+                        Discrete Mathematics
+                      </button>
+
+                      <button 
+                        onClick={() => handleSubjectSelect('Engineering Mathematics')}
+                        className={`subject-menu-btn ${selectedSubject === 'Engineering Mathematics' ? 'active' : ''}`}
+                      >
+                        <span className="subject-dot" />
+                        Engineering Mathematics
+                      </button>
+                    </div>
+
+                    {/* Column 2: Systems & Hardware */}
+                    <div className="subject-menu-column">
+                      <div className="subject-menu-col-title">Systems & Hardware</div>
+
+                      <button 
+                        onClick={() => handleSubjectSelect('Digital Logic')}
+                        className={`subject-menu-btn ${selectedSubject === 'Digital Logic' ? 'active' : ''}`}
+                      >
+                        <span className="subject-dot" />
+                        Digital Logic
+                      </button>
+
+                      <button 
+                        onClick={() => handleSubjectSelect('Computer Organization')}
+                        className={`subject-menu-btn ${selectedSubject === 'Computer Organization' ? 'active' : ''}`}
+                      >
+                        <span className="subject-dot" />
+                        Computer Organization
+                      </button>
+
+                      <button 
+                        onClick={() => handleSubjectSelect('Operating Systems')}
+                        className={`subject-menu-btn ${selectedSubject === 'Operating Systems' ? 'active' : ''}`}
+                      >
+                        <span className="subject-dot" />
+                        Operating Systems
+                      </button>
+
+                      <button 
+                        onClick={() => handleSubjectSelect('Computer Networks')}
+                        className={`subject-menu-btn ${selectedSubject === 'Computer Networks' ? 'active' : ''}`}
+                      >
+                        <span className="subject-dot" />
+                        Computer Networks
+                      </button>
+                    </div>
+
+                    {/* Column 3: Theory & Software */}
+                    <div className="subject-menu-column">
+                      <div className="subject-menu-col-title">Theory & Software</div>
+
+                      <button 
+                        onClick={() => handleSubjectSelect('Data Structures')}
+                        className={`subject-menu-btn ${selectedSubject === 'Data Structures' ? 'active' : ''}`}
+                      >
+                        <span className="subject-dot" />
+                        Data Structures
+                      </button>
+
+                      <button 
+                        onClick={() => handleSubjectSelect('Algorithms')}
+                        className={`subject-menu-btn ${selectedSubject === 'Algorithms' ? 'active' : ''}`}
+                      >
+                        <span className="subject-dot" />
+                        Algorithms
+                      </button>
+
+                      <button 
+                        onClick={() => handleSubjectSelect('Databases')}
+                        className={`subject-menu-btn ${selectedSubject === 'Databases' ? 'active' : ''}`}
+                      >
+                        <span className="subject-dot" />
+                        Databases
+                      </button>
+
+                      <button 
+                        onClick={() => handleSubjectSelect('Theory of Computation')}
+                        className={`subject-menu-btn ${selectedSubject === 'Theory of Computation' ? 'active' : ''}`}
+                      >
+                        <span className="subject-dot" />
+                        Theory of Computation
+                      </button>
+
+                      <button 
+                        onClick={() => handleSubjectSelect('Compiler Design')}
+                        className={`subject-menu-btn ${selectedSubject === 'Compiler Design' ? 'active' : ''}`}
+                      >
+                        <span className="subject-dot" />
+                        Compiler Design
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -660,13 +997,13 @@ export default function App() {
                     <div key={pf.id} style={{
                       display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-surface)',
                       border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12,
-                      padding: '6px 10px 6px 6px', fontSize: 12, color: 'var(--text-muted)', maxWidth: 220,
+                      padding: '6px 10px 6px 6px', fontSize: '0.857em', color: 'var(--text-muted)', maxWidth: 220,
                     }}>
                       {pf.file.type.startsWith('image/') ? (
                         <img src={pf.dataUrl} alt={pf.file.name}
                           style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
                       ) : (
-                        <div style={{ width: 32, height: 32, borderRadius: 6, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 16 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 6, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.143em' }}>
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                             <polyline points="14 2 14 8 20 8"/>
@@ -675,11 +1012,11 @@ export default function App() {
                       )}
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{pf.file.name}</span>
                       {pf.uploading ? (
-                        <span style={{ fontSize: 10, color: 'var(--accent-blue)', flexShrink: 0 }}>...</span>
+                        <span style={{ fontSize: '0.714em', color: 'var(--accent-blue)', flexShrink: 0 }}>...</span>
                       ) : (
                         <button onClick={() => removePendingFile(pf.id)} title="Remove" style={{
                           background: 'none', border: 'none', color: 'var(--text-faint)', cursor: 'pointer',
-                          padding: 0, display: 'flex', alignItems: 'center', fontSize: 14, lineHeight: 1, flexShrink: 0,
+                          padding: 0, display: 'flex', alignItems: 'center', fontSize: '1em', lineHeight: 1, flexShrink: 0,
                         }}>×</button>
                       )}
                     </div>
@@ -687,14 +1024,7 @@ export default function App() {
                 </div>
               )}
 
-              <div style={{
-                position: 'relative', display: 'flex', alignItems: 'flex-end', gap: 8,
-                background: 'var(--bg-surface)', border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 'var(--radius-pill)', padding: '8px 12px 8px 8px',
-                transition: 'border-color var(--transition-smooth), box-shadow var(--transition-smooth)',
-                boxShadow: inputFocused ? '0 0 0 1px rgba(138,180,248,0.15)' : 'none',
-                borderColor: inputFocused ? 'rgba(138,180,248,0.3)' : 'rgba(255,255,255,0.08)',
-              }}>
+              <div className="chat-input-container">
                 {showAddMenu && (
                   <div ref={addMenuRef} style={{
                     position: 'absolute', bottom: 'calc(100% + 12px)', left: 0, width: 280,
@@ -707,7 +1037,7 @@ export default function App() {
                       background: addMenuIndex === 0 ? 'rgba(255,255,255,0.06)' : 'transparent',
                       border: 'none', color: 'var(--text-primary)', padding: '10px 12px', borderRadius: 8,
                       display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', textAlign: 'left',
-                      fontSize: 14, fontWeight: 500,
+                      fontSize: '1em', fontWeight: 500,
                     }}>
                       <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -720,7 +1050,7 @@ export default function App() {
                       background: addMenuIndex === 1 ? 'rgba(255,255,255,0.06)' : 'transparent',
                       border: 'none', color: 'var(--text-primary)', padding: '10px 12px', borderRadius: 8,
                       display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', textAlign: 'left',
-                      fontSize: 14, fontWeight: 500,
+                      fontSize: '1em', fontWeight: 500,
                     }}>
                       <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: visualiseMode ? 'var(--accent-blue)' : '#9ca3af' }}>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -728,13 +1058,13 @@ export default function App() {
                         </svg>
                       </span>
                       Visualise UI
-                      <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-faint)', fontWeight: 400 }}>{visualiseMode ? 'On' : 'Off'}</span>
+                      <span style={{ marginLeft: 'auto', fontSize: '0.857em', color: 'var(--text-faint)', fontWeight: 400 }}>{visualiseMode ? 'On' : 'Off'}</span>
                     </button>
-                    <button onClick={() => { setShowSubjectMenu(true); setShowAddMenu(false); }} style={{
+                    <button ref={subjectBtnRef} onClick={() => { setShowSubjectMenu(prev => !prev); setShowAddMenu(false); }} style={{
                       background: addMenuIndex === 2 ? 'rgba(255,255,255,0.06)' : 'transparent',
                       border: 'none', color: 'var(--text-primary)', padding: '10px 12px', borderRadius: 8,
                       display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', textAlign: 'left',
-                      fontSize: 14, fontWeight: 500,
+                      fontSize: '1em', fontWeight: 500,
                     }}>
                       <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -748,97 +1078,111 @@ export default function App() {
 
                 <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.txt,.doc,.docx" onChange={handleFileSelect} style={{ display: 'none' }} />
 
-                <button ref={addBtnRef} onClick={() => setShowAddMenu(prev => !prev)} title="Add menu" style={{
-                  background: showAddMenu ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.06)',
-                  border: 'none', color: 'var(--text-primary)', cursor: 'pointer', width: 32, height: 32,
-                  borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'all var(--transition-fast)', flexShrink: 0,
-                }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                    style={{ transition: 'transform 0.2s', transform: showAddMenu ? 'rotate(45deg)' : 'rotate(0deg)' }}>
-                    <line x1="12" y1="5" x2="12" y2="19"></line>
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                  </svg>
-                </button>
-
-                {selectedSubject && (
-                  <span style={{
-                    background: 'rgba(138,180,248,0.12)', color: 'var(--accent-blue)', fontSize: 11,
-                    fontWeight: 500, padding: '3px 8px', borderRadius: 'var(--radius-pill)',
-                    whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4,
-                    flexShrink: 0, lineHeight: 1.3, alignSelf: 'center',
-                  }}>
-                    {selectedSubject}
-                    <button onClick={(e) => { e.stopPropagation(); setSelectedSubject(null); }} style={{
-                      background: 'none', border: 'none', color: 'var(--accent-blue)', cursor: 'pointer',
-                      padding: 0, display: 'flex', alignItems: 'center', fontSize: 13, lineHeight: 1, opacity: 0.6,
-                    }}>x</button>
-                  </span>
-                )}
-
                 <textarea
                   ref={textareaRef} value={inputText} onChange={e => setInputText(e.target.value)}
-                  onKeyDown={handleKeyDown} onFocus={() => setInputFocused(true)}
-                  onBlur={() => setInputFocused(false)} placeholder="Ask a GATE CSE question..."
+                  onKeyDown={handleKeyDown} placeholder={editingMsgId ? 'Edit your message...' : 'Ask Shikshak a question...'}
                   rows={1}
-                  style={{
-                    flex: 1, background: 'transparent', border: 'none', outline: 'none',
-                    color: 'var(--text-primary)', fontFamily: 'var(--font-sans)', fontSize: 15,
-                    lineHeight: 1.5, resize: 'none', maxHeight: 120, padding: '4px 0',
-                  }}
+                  className="chat-input-textarea"
                 />
 
-                {inputText.length === 0 && pendingFiles.length === 0 && (
-                  <span style={{ fontSize: 11, color: 'var(--text-faint)', whiteSpace: 'nowrap', paddingBottom: 4, opacity: 0.5, userSelect: 'none' }}>
-                    ⇧ Enter
-                  </span>
-                )}
+                <div className="chat-input-bottom-bar">
+                  <div className="chat-input-action-group">
+                    <button ref={addBtnRef} onClick={() => setShowAddMenu(prev => !prev)} title="Add menu"
+                      className={`chat-action-btn chat-add-btn ${showAddMenu ? 'active' : ''}`}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                        style={{ transition: 'transform 0.2s', transform: showAddMenu ? 'rotate(45deg)' : 'rotate(0deg)' }}>
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                    </button>
 
-                {browserSupportsSpeechRecognition && (
-                  <button onClick={toggleVoice} title={listening ? 'Stop listening' : 'Voice typing'} style={{
-                    background: listening ? 'rgba(239,68,68,0.15)' : 'transparent',
-                    animation: listening ? 'pulseRed 1.5s infinite' : 'none',
-                    border: 'none', color: listening ? '#ef4444' : 'var(--text-faint)', cursor: 'pointer',
-                    width: 38, height: 38, borderRadius: '50%', display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', transition: 'all var(--transition-fast)', flexShrink: 0,
-                  }}>
-                    {listening ? (
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="9" y="9" width="6" height="6" rx="1" ry="1" />
-                      </svg>
-                    ) : (
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                        <line x1="12" y1="19" x2="12" y2="22" />
-                      </svg>
+                    {selectedSubject && (
+                      <span style={{
+                        background: 'rgba(138,180,248,0.12)', color: 'var(--accent-blue)', fontSize: '0.786em',
+                        fontWeight: 500, padding: '4px 10px', borderRadius: 'var(--radius-pill)',
+                        whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6,
+                        flexShrink: 0, lineHeight: 1.3,
+                      }}>
+                        {selectedSubject}
+                        <button onClick={(e) => { e.stopPropagation(); setSelectedSubject(null); }} style={{
+                          background: 'none', border: 'none', color: 'var(--accent-blue)', cursor: 'pointer',
+                          padding: 0, display: 'flex', alignItems: 'center', fontSize: '1.1em', lineHeight: 1, opacity: 0.6,
+                        }}>×</button>
+                      </span>
                     )}
-                  </button>
-                )}
 
-                {streaming ? (
-                  <button onClick={stopStream} title="Stop generating" style={{
-                    background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer',
-                    width: 38, height: 38, borderRadius: '50%', display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', transition: 'all var(--transition-fast)', flexShrink: 0,
-                  }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                      <rect x="6" y="6" width="12" height="12" rx="2"/>
-                    </svg>
-                  </button>
-                ) : (
-                  <button onClick={handleSendMessage} disabled={!canSend} style={{
-                    background: canSend ? 'var(--accent-blue)' : 'rgba(255,255,255,0.08)',
-                    border: 'none', color: canSend ? '#131314' : 'var(--text-faint)',
-                    cursor: canSend ? 'pointer' : 'default', width: 38, height: 38, borderRadius: '50%',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    transition: 'all var(--transition-fast)', flexShrink: 0,
-                  }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                    </svg>
-                  </button>
-                )}
+                    <WebSearchToggle
+                      active={settings.webSearch}
+                      onToggle={(v) => saveSettings({ ...settings, webSearch: v })}
+                    />
+
+
+                  </div>
+
+                  <div className="chat-input-action-group">
+                    {browserSupportsSpeechRecognition && (
+                      <button onClick={toggleVoice} title={listening ? 'Stop listening' : 'Voice typing'}
+                        className="chat-action-btn"
+                        style={{
+                          background: listening ? 'rgba(239,68,68,0.15)' : 'transparent',
+                          animation: listening ? 'pulseRed 1.5s infinite' : 'none',
+                          color: listening ? '#ef4444' : 'var(--text-faint)',
+                        }}
+                      >
+                        {listening ? (
+                          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="9" y="9" width="6" height="6" rx="1" ry="1" />
+                          </svg>
+                        ) : (
+                          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                            <line x1="12" y1="19" x2="12" y2="22" />
+                          </svg>
+                        )}
+                      </button>
+                    )}
+
+                    {editingMsgId && (
+                      <button onClick={handleCancelEdit} title="Cancel edit"
+                        className="chat-action-btn"
+                        style={{ color: 'var(--text-faint)' }}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                      </button>
+                    )}
+
+                    {streaming ? (
+                      <button onClick={stopStream} title="Stop generating"
+                        className="chat-action-btn"
+                        style={{ background: '#ef4444', color: '#fff' }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                          <rect x="6" y="6" width="12" height="12" rx="2"/>
+                        </svg>
+                      </button>
+                    ) : (
+                      <button onClick={handleSendMessage} disabled={!canSend}
+                        className={`chat-action-btn chat-send-btn ${canSend ? 'active' : ''}`}
+                        title={editingMsgId ? 'Update' : 'Send'}
+                        style={{ width: 48, height: 48 }}
+                      >
+                        {editingMsgId ? (
+                          <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12"/>
+                          </svg>
+                        ) : (
+                          <svg width="25" height="25" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                          </svg>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

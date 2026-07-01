@@ -1,4 +1,4 @@
-import { type FC, useEffect, useRef } from 'react';
+import { type FC, useEffect, useRef, useState } from 'react';
 
 interface MermaidBlockProps {
   chart: string;
@@ -9,9 +9,11 @@ let mermaidInitialized = false;
 
 const MermaidBlock: FC<MermaidBlockProps> = ({ chart }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    setError(false);
 
     (async () => {
       try {
@@ -42,12 +44,14 @@ const MermaidBlock: FC<MermaidBlockProps> = ({ chart }) => {
           containerRef.current.innerHTML = svg;
         }
       } catch {
-        // Silent fail — don't show errors or raw chart text
+        if (!cancelled) setError(true);
       }
     })();
 
     return () => { cancelled = true; };
   }, [chart]);
+
+  if (error) return null; // Silently hide broken diagrams
 
   return (
     <div ref={containerRef} />

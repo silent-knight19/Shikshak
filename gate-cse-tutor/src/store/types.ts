@@ -6,6 +6,13 @@ export interface Attachment {
   url: string;
 }
 
+export interface Source {
+  title: string;
+  url: string;
+  snippet?: string;
+  index?: number;
+}
+
 export interface FirestoreMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -14,6 +21,8 @@ export interface FirestoreMessage {
   attachments?: Attachment[];
   thinkingTrace: string;
   visualizationHTML?: string;
+  sources?: Source[];
+  feedback?: 'good' | 'bad' | null;
   tokens?: {
     prompt: number;
     completion: number;
@@ -21,6 +30,19 @@ export interface FirestoreMessage {
   } | null;
   status: 'streaming' | 'completed' | 'error';
   createdAt: number;
+}
+
+export interface RagEvent {
+  type: 'status' | 'queries' | 'sources' | 'token' | 'done' | 'error';
+  text?: string;
+  queries?: string[];
+  sources?: Source[];
+  thought?: boolean;
+  tokenUsage?: {
+    prompt: number;
+    completion: number;
+    thinking: number;
+  };
 }
 
 export interface Conversation {
@@ -47,17 +69,17 @@ export interface StreamChunk {
 }
 
 export interface Settings {
-  model: string;
   temperature: number;
   thinkingLevel: 'off' | 'low' | 'medium' | 'high';
   visualiseMode: boolean;
+  webSearch: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  model: 'gemma-4-31b-it',
   temperature: 0.7,
   thinkingLevel: 'high',
   visualiseMode: false,
+  webSearch: true,
 };
 
 export type SubjectTag =
