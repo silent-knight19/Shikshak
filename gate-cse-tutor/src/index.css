@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import 'katex/dist/katex.min.css';
 
 *, *::before, *::after {
@@ -69,6 +68,7 @@ html, body, #root {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
 }
 
 ::-webkit-scrollbar {
@@ -92,6 +92,14 @@ html, body, #root {
 
 ::selection {
   background: rgba(138, 180, 248, 0.3);
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+input, textarea, button, select, a {
+  touch-action: manipulation;
 }
 
 @keyframes fadeIn {
@@ -146,8 +154,8 @@ html, body, #root {
 }
 
 @keyframes slideInDrawer {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(0); }
+  from { transform: translate3d(-100%, 0, 0); }
+  to { transform: translate3d(0, 0, 0); }
 }
 
 @keyframes fadeOverlay {
@@ -160,6 +168,10 @@ html, body, #root {
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .katex-display {
   margin: 16px 0 !important;
   overflow-x: auto;
@@ -167,11 +179,27 @@ html, body, #root {
   padding: 4px 0;
 }
 
-button:active:not(:disabled) {
-  transform: scale(0.98);
+.pwa-app-fade-in {
+  animation: appFadeIn 0.3s ease;
+}
+
+.will-animate-transform {
+  will-change: transform;
+}
+
+.will-animate-opacity {
+  will-change: opacity;
 }
 
 @media (max-width: 768px) {
+  html, body, #root {
+    font-size: 16px;
+  }
+
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+
   .mobile-transparent-app {
     background: transparent !important;
   }
@@ -215,7 +243,6 @@ button:active:not(:disabled) {
   }
 
   .mobile-header-name {
-    
     font-weight: 500;
     color: var(--text-primary);
     line-height: 1.2;
@@ -228,8 +255,8 @@ button:active:not(:disabled) {
   }
 
   .mobile-header-icon {
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     border-radius: 8px;
     background: transparent;
     border: none;
@@ -252,6 +279,7 @@ button:active:not(:disabled) {
     z-index: 999;
     background: rgba(0, 0, 0, 0.6);
     animation: fadeOverlay 0.2s ease;
+    will-change: opacity;
   }
 
   .mobile-drawer {
@@ -270,6 +298,7 @@ button:active:not(:disabled) {
     padding-top: var(--safe-area-top);
     padding-bottom: var(--safe-area-bottom);
     overflow: hidden;
+    will-change: transform;
   }
 
   .mobile-drawer-header {
@@ -297,14 +326,13 @@ button:active:not(:disabled) {
   }
 
   .mobile-drawer-name {
-    
     font-weight: 600;
     color: #fff;
   }
 
   .mobile-drawer-close {
-    width: 30px;
-    height: 30px;
+    width: 44px;
+    height: 44px;
     border-radius: 8px;
     background: transparent;
     border: none;
@@ -325,13 +353,13 @@ button:active:not(:disabled) {
 
   .mobile-drawer-search-input {
     width: 100%;
-    padding: 8px 12px;
+    padding: 12px;
     background: var(--bg-surface);
     border: 1px solid transparent;
     border-radius: 8px;
     color: var(--text-primary);
-    
     font-family: var(--font-sans);
+    font-size: 16px;
     outline: none;
   }
 
@@ -341,13 +369,13 @@ button:active:not(:disabled) {
 
   .mobile-drawer-new-chat {
     margin: 0 14px 10px;
-    padding: 10px;
+    padding: 12px;
     border-radius: 8px;
     border: 1px dashed var(--border-active);
     background: transparent;
     color: var(--text-muted);
-    
     font-weight: 500;
+    font-size: 16px;
     font-family: var(--font-sans);
     cursor: pointer;
     display: flex;
@@ -364,7 +392,6 @@ button:active:not(:disabled) {
 
   .mobile-drawer-label {
     padding: 10px 18px 4px;
-    
     font-weight: 600;
     color: var(--text-faint);
     letter-spacing: 0.8px;
@@ -377,6 +404,8 @@ button:active:not(:disabled) {
   .mobile-drawer-list {
     flex: 1;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     padding: 4px 8px;
   }
 
@@ -384,10 +413,11 @@ button:active:not(:disabled) {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 9px 10px;
+    padding: 12px 10px;
     border-radius: 8px;
     cursor: pointer;
     margin-bottom: 1px;
+    min-height: 44px;
   }
 
   .mobile-drawer-item:active {
@@ -421,7 +451,6 @@ button:active:not(:disabled) {
   }
 
   .mobile-drawer-item-title {
-    
     font-weight: 400;
     color: var(--text-primary);
     line-height: 1.3;
@@ -431,7 +460,6 @@ button:active:not(:disabled) {
   }
 
   .mobile-drawer-item-preview {
-    
     color: var(--text-faint);
     line-height: 1.3;
     overflow: hidden;
@@ -463,6 +491,7 @@ button:active:not(:disabled) {
     width: 100%;
     max-height: 85vh;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     padding: 20px;
     padding-bottom: calc(20px + var(--safe-area-bottom));
     animation: slideUp 0.25s cubic-bezier(0.32, 0.72, 0, 1);
@@ -483,7 +512,6 @@ button:active:not(:disabled) {
     inset: 0;
     z-index: 1000;
     background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -506,11 +534,6 @@ button:active:not(:disabled) {
   }
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Redesigned Chat Input Box */
 .chat-input-container {
   position: relative;
   display: flex;
@@ -556,7 +579,6 @@ button:active:not(:disabled) {
   gap: 8px;
 }
 
-/* Standardised Action Buttons */
 .chat-action-btn {
   background: transparent;
   border: none;
@@ -581,7 +603,6 @@ button:active:not(:disabled) {
   transform: scale(0.95);
 }
 
-/* Add menu button specific style */
 .chat-add-btn {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
@@ -597,7 +618,6 @@ button:active:not(:disabled) {
   color: var(--text-primary);
 }
 
-/* Send button specific style */
 .chat-send-btn {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-faint);
@@ -615,16 +635,36 @@ button:active:not(:disabled) {
   box-shadow: 0 2px 8px rgba(138, 180, 248, 0.25);
 }
 
-/* Redesigned Subject Menu Dropdown */
+.suggestion-chip {
+  background: var(--bg-surface);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  font-size: 0.929em;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: all var(--transition-fast);
+  touch-action: manipulation;
+}
+
+.suggestion-chip:hover {
+  background: var(--bg-hover);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+}
+
+.suggestion-chip:active {
+  transform: scale(0.97);
+}
+
 .subject-menu-container {
   position: absolute;
   bottom: calc(100% + 12px);
   left: 0;
   width: 100%;
   max-width: 720px;
-  background: rgba(30, 30, 31, 0.95);
-  backdrop-filter: blur(16px) saturate(120%);
-  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  background: var(--bg-surface);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   padding: 16px;
@@ -633,13 +673,20 @@ button:active:not(:disabled) {
   animation: slideUp 0.15s ease-out forwards;
 }
 
+@supports (backdrop-filter: blur(16px)) {
+  .subject-menu-container {
+    background: rgba(30, 30, 31, 0.95);
+    backdrop-filter: blur(16px) saturate(120%);
+    -webkit-backdrop-filter: blur(16px) saturate(120%);
+  }
+}
+
 .subject-menu-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
 }
 
-/* Fallback for smaller screens: stack columns */
 @media (max-width: 640px) {
   .subject-menu-grid {
     grid-template-columns: 1fr;
@@ -683,6 +730,7 @@ button:active:not(:disabled) {
   font-weight: 500;
   text-align: left;
   transition: all var(--transition-fast);
+  touch-action: manipulation;
 }
 
 .subject-menu-btn:hover {
@@ -784,3 +832,8 @@ button:active:not(:disabled) {
   padding: 0 4px;
 }
 
+@media (max-width: 768px) {
+  .message-row-user .message-bubble-wrapper > div:first-child {
+    max-width: 95% !important;
+  }
+}

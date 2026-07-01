@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, lazy, Suspense } from 'react';
 import type { VisualizationData } from '../visualizations/types';
-import VisualizationRenderer from '../visualizations/VisualizationRenderer';
+
+const VisualizationRenderer = lazy(() => import('../visualizations/VisualizationRenderer'));
 
 interface VizFrameProps {
   html: string | null;
@@ -44,7 +45,9 @@ export default function VizFrame({ html }: VizFrameProps) {
             <span>Visualisation {visualizations.length > 1 ? `${i + 1}` : ''}</span>
           </div>
           <div style={{ padding: '16px', overflowX: 'auto', display: 'flex', justifyContent: 'center' }}>
-            <VisualizationRenderer data={viz} />
+            <Suspense fallback={<div style={{ padding: 24, color: 'var(--text-faint)', fontSize: '0.857em' }}>Loading chart...</div>}>
+              <VisualizationRenderer data={viz} />
+            </Suspense>
           </div>
         </div>
       ))}

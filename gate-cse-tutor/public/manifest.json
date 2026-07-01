@@ -1,0 +1,29 @@
+{
+  "name": "Shikshak",
+  "short_name": "Shikshak",
+  "description": "AI-powered tutoring for GATE Computer Science & Engineering",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#131314",
+  "theme_color": "#131314",
+  "scope": "/",
+  "categories": ["education", "productivity"],
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    { "src": "/icons/shikshak-logo-72.png", "sizes": "72x72", "type": "image/png" },
+    { "src": "/icons/shikshak-logo-96.png", "sizes": "96x96", "type": "image/png" },
+    { "src": "/icons/shikshak-logo-128.png", "sizes": "128x128", "type": "image/png" },
+    { "src": "/icons/shikshak-logo-144.png", "sizes": "144x144", "type": "image/png" },
+    { "src": "/icons/shikshak-logo-152.png", "sizes": "152x152", "type": "image/png" },
+    { "src": "/icons/shikshak-logo-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/shikshak-logo-384.png", "sizes": "384x384", "type": "image/png" },
+    { "src": "/icons/shikshak-logo-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/shikshak-logo-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/shikshak-logo-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

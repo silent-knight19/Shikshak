@@ -1,11 +1,11 @@
-import { useMemo, type FC, type ReactNode } from 'react';
+import { useMemo, useEffect, type FC, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import remarkGfm from 'remark-gfm';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import CodeBlock from './CodeBlock';
-import MermaidBlock from './MermaidBlock';
+import LazyMermaidBlock from './LazyMermaidBlock';
 
 interface MarkdownRendererProps {
   content: string;
@@ -16,12 +16,35 @@ function isMermaidBlock(language: string | undefined): boolean {
   return language === 'mermaid' || language === 'mmd';
 }
 
+const MATH_RE = /\\\(|\\\[|\\\\\(|\\\\\[|\$\$/;
+
+function hasMath(content: string): boolean {
+  return MATH_RE.test(content);
+}
+
 const MarkdownRenderer: FC<MarkdownRendererProps> = ({ content, suppressMermaid = false }) => {
-  // Strip any stray visualization/Mermaid tags that might leak through streaming
   const cleanContent = content
     .replace(/<visualization>[\s\S]*?(<\/visualization>|$)/gi, '')
     .replace(/```mermaid[\s\S]*?(```|$)/gi, '')
     .replace(/```mmd[\s\S]*?(```|$)/gi, '');
+
+  const needsMath = useMemo(() => hasMath(cleanContent), [cleanContent]);
+
+  useEffect(() => {
+    if (needsMath) {
+      const linkId = 'katex-css-lazy';
+      if (!document.getElementById(linkId)) {
+        const link = document.createElement('link');
+        link.id = linkId;
+        link.rel = 'stylesheet';
+        link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css';
+        link.integrity = 'sha384-nB0miv6/jRmo5UMMR1wu3Gz6NL4x5NIfgQ1gW7H4kUTpmlXlLDTvG5IhK+qG6fG';
+        link.crossOrigin = 'anonymous';
+        document.head.appendChild(link);
+      }
+    }
+  }, [needsMath]);
+
   const components: any = useMemo(() => ({
     code({ node, className, children, ...props }: any) {
       const match = /language-(\w+)/.exec(className || '');
@@ -30,7 +53,7 @@ const MarkdownRenderer: FC<MarkdownRendererProps> = ({ content, suppressMermaid 
 
       if (isMermaidBlock(lang)) {
         if (suppressMermaid) return null;
-        return <MermaidBlock chart={codeStr} />;
+        return <LazyMermaidBlock chart={codeStr} />;
       }
 
       if (lang) {
@@ -86,27 +109,19 @@ const MarkdownRenderer: FC<MarkdownRendererProps> = ({ content, suppressMermaid 
     },
     td({ children }: { children: ReactNode }) {
       return (
-        <td
-          style={{
-            border: '1px solid var(--border)',
-            padding: '8px 12px',
-            textAlign: 'left',
-            color: 'var(--text-primary)',
-            transition: 'background var(--transition-fast)',
-          }}
-        >
+        <td style={{
+          border: '1px solid var(--border)',
+          padding: '8px 12px',
+          textAlign: 'left',
+          color: 'var(--text-primary)',
+        }}>
           {children}
         </td>
       );
     },
     tr({ children, ...props }: any) {
       return (
-        <tr
-          style={{ transition: 'background var(--transition-fast)' }}
-          onMouseEnter={(e: any) => { if (e.currentTarget.parentElement?.tagName === 'TBODY') e.currentTarget.style.background = 'var(--bg-hover)'; }}
-          onMouseLeave={(e: any) => { e.currentTarget.style.background = 'transparent'; }}
-          {...props}
-        >
+        <tr style={{}} {...props}>
           {children}
         </tr>
       );
@@ -134,10 +149,8 @@ const MarkdownRenderer: FC<MarkdownRendererProps> = ({ content, suppressMermaid 
     },
     blockquote(props: any) {
       const { children } = props;
-
-      // Detect TRAP/WARNING callouts from the system prompt
       const textContent = String(children);
-      const isTrap = textContent.includes('⚠️') || textContent.includes('TRAP');
+      const isTrap = textContent.includes('\u26A0\uFE0F') || textContent.includes('TRAP');
 
       return (
         <blockquote style={{
@@ -159,7 +172,7 @@ const MarkdownRenderer: FC<MarkdownRendererProps> = ({ content, suppressMermaid 
     },
     a(props: any) {
       const { href, children } = props;
-      return <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-blue)', textDecoration: 'none', transition: 'color var(--transition-fast)' }}>{children}</a>;
+      return <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-blue)', textDecoration: 'none' }}>{children}</a>;
     },
     strong({ children }: { children: ReactNode }) {
       return <strong style={{ color: 'var(--text-heading)', fontWeight: 600 }}>{children}</strong>;
@@ -169,8 +182,8 @@ const MarkdownRenderer: FC<MarkdownRendererProps> = ({ content, suppressMermaid 
   return (
     <div style={{ lineHeight: 1.75 }}>
       <ReactMarkdown
-        remarkPlugins={[remarkMath, remarkGfm]}
-        rehypePlugins={[rehypeKatex, rehypeRaw]}
+        remarkPlugins={needsMath ? [remarkMath, remarkGfm] : [remarkGfm]}
+        rehypePlugins={needsMath ? [rehypeKatex, rehypeRaw] : [rehypeRaw]}
         components={components}
       >
         {cleanContent}
