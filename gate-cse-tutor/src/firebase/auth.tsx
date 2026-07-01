@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type FC, type ReactNode } from 'react';
-import { onAuthStateChanged, signInWithCredential, signInWithRedirect, GoogleAuthProvider, signOut, type User } from 'firebase/auth';
+import { onAuthStateChanged, signInWithCredential, signInWithPopup, GoogleAuthProvider, signOut, type User } from 'firebase/auth';
 import { doc, setDoc, Timestamp } from 'firebase/firestore';
 import { auth, googleProvider, db } from './config';
 
@@ -82,7 +82,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
     if (window.AndroidAuth) {
       await tryAndroidAuthBridge();
     } else {
-      await signInWithRedirect(auth, googleProvider);
+      await signInWithPopup(auth, googleProvider);
     }
   };
 

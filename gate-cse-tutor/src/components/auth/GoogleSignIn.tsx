@@ -25,19 +25,11 @@ const GoogleSignIn: FC = () => {
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 32, maxWidth: 420,
         padding: '0 24px',
       }}>
-        <div style={{
-          width: 72, height: 72, borderRadius: 20,
-          background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="white" stroke="none">
-            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-          </svg>
-        </div>
+          <img src="/shikshak-logo.png" alt="Shikshak Logo" style={{ width: 72, height: 72, borderRadius: 20, objectFit: 'cover' }} />
 
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '1.714em', fontWeight: 600, color: 'var(--text-heading)', marginBottom: 8 }}>
-            GATE CSE Tutor
+            Shikshak
           </div>
           <div style={{ fontSize: '1em', color: 'var(--text-muted)', lineHeight: 1.5 }}>
             AI-powered tutoring for GATE Computer Science & Engineering

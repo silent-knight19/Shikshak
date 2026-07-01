@@ -3,7 +3,7 @@ import type { AutomatonData } from './types';
 import { SvgContainer } from './SvgContainer';
 
 export default function Automaton({ data }: { data: AutomatonData }) {
-  const W = 960, H = 620;
+  const W = 1200, H = 800;
 
   const layout = useMemo(() => {
     const cx = W / 2, cy = H / 2;

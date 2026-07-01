@@ -43,7 +43,7 @@ export default function VizFrame({ html }: VizFrameProps) {
           }}>
             <span>Visualisation {visualizations.length > 1 ? `${i + 1}` : ''}</span>
           </div>
-          <div style={{ padding: '16px' }}>
+          <div style={{ padding: '16px', overflowX: 'auto', display: 'flex', justifyContent: 'center' }}>
             <VisualizationRenderer data={viz} />
           </div>
         </div>

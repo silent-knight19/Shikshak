@@ -1,6 +1,7 @@
 import type { FC, ReactNode } from 'react';
 import MessageActions from './MessageActions';
 import type { MessageActionsProps } from './MessageActions';
+import { useAuth } from '../../firebase/auth';
 
 interface MessageBubbleProps {
   role: 'user' | 'assistant';
@@ -19,6 +20,7 @@ function formatTime(ts: number): string {
 
 const MessageBubble: FC<MessageBubbleProps> = ({ role, children, timestamp, actions, streaming }) => {
   const isUser = role === 'user';
+  const { user } = useAuth();
   return (
     <div className={`message-row ${isUser ? 'message-row-user' : 'message-row-assistant'}`}>
       <div style={{
@@ -33,6 +35,7 @@ const MessageBubble: FC<MessageBubbleProps> = ({ role, children, timestamp, acti
           color: 'var(--text-muted)',
           marginBottom: 10,
           fontWeight: 600,
+          fontSize: '0.8em',
           textTransform: 'uppercase',
           letterSpacing: 0.5,
           display: 'flex',
@@ -40,9 +43,9 @@ const MessageBubble: FC<MessageBubbleProps> = ({ role, children, timestamp, acti
           gap: 10,
         }}>
           {isUser ? (
-            <>You <div style={{width: 28, height: 28, borderRadius: '50%', background: 'var(--accent-blue)', color: '#131314', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>U</div></>
+            <>{user?.displayName || 'You'} {user?.photoURL ? <img src={user.photoURL} alt="User" style={{width: 28, height: 28, borderRadius: '50%', objectFit: 'cover'}} /> : <div style={{width: 28, height: 28, borderRadius: '50%', background: 'var(--accent-blue)', color: '#131314', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>{(user?.displayName || 'U').charAt(0).toUpperCase()}</div>}</>
           ) : (
-            <><div style={{width: 28, height: 28, borderRadius: '8px', background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><svg width="16" height="16" viewBox="0 0 24 24" fill="white" stroke="none"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg></div> AI Tutor</>
+            <><img src="/shikshak-logo.png" alt="Shikshak" style={{width: 28, height: 28, borderRadius: '6px', objectFit: 'cover'}} /> Shikshak</>
           )}
         </div>
         <div className={`message-bubble-wrapper ${isUser ? 'message-user-wrapper' : 'message-assistant-wrapper'}`}>
