@@ -370,8 +370,13 @@ export default function App() {
         });
       }
       if (pf.file.type.startsWith('image/')) {
-        const base64 = pf.dataUrl.split(',')[1];
-        imageParts.push({ mimeType: pf.file.type, data: base64 });
+        const match = pf.dataUrl.match(/^data:(image\/[a-zA-Z0-9]+);base64,(.+)$/);
+        if (match) {
+          imageParts.push({ mimeType: match[1], data: match[2] });
+        } else {
+          const base64 = pf.dataUrl.split(',')[1];
+          imageParts.push({ mimeType: 'image/jpeg', data: base64 });
+        }
       }
     }
 
