@@ -18,7 +18,7 @@ import { useConversations } from './hooks/useConversations';
 import { useMessages } from './hooks/useMessages';
 import { useSettings } from './hooks/useSettings';
 import { useStreaming } from './hooks/useStreaming';
-import { uploadFile } from './firebase/storage';
+
 import {
   addUserMessage as fbAddUserMessage,
   createAssistantMessage as fbCreateAssistantMessage,
