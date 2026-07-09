@@ -26,7 +26,9 @@ const MarkdownRenderer: FC<MarkdownRendererProps> = ({ content, suppressMermaid 
   const cleanContent = content
     .replace(/<visualization>[\s\S]*?(<\/visualization>|$)/gi, '')
     .replace(/```mermaid[\s\S]*?(```|$)/gi, '')
-    .replace(/```mmd[\s\S]*?(```|$)/gi, '');
+    .replace(/```mmd[\s\S]*?(```|$)/gi, '')
+    .replace(/\\\[([\s\S]*?)\\\]/g, (match, p1) => `$$${p1}$$`)
+    .replace(/\\\(([\s\S]*?)\\\)/g, (match, p1) => `$${p1}$`);
 
   const needsMath = useMemo(() => hasMath(cleanContent), [cleanContent]);
 
